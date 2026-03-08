@@ -1,0 +1,9 @@
+{
+  "id": "segment-core",
+  "type": "segment",
+  "title": "Core Segment",
+  "tags": ["core"],
+  "relations": [
+    { "type": "uses", "targetId": "vlan-100" }
+  ]
+}

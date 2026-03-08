@@ -1,0 +1,9 @@
+id: site-tokyo
+type: site
+title: Tokyo DC
+summary: Primary site
+tags:
+  - production
+relations:
+  - type: contains
+    targetId: segment-core

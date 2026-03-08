@@ -1,16 +1,13 @@
 declare module 'node:fs' {
-  export type Dirent = {
-    name: string;
-    isDirectory(): boolean;
-    isFile(): boolean;
-  };
-
-  export const readdirSync: (path: string, options: { withFileTypes: true }) => readonly Dirent[];
-  export const readFileSync: (path: string, encoding: 'utf8') => string;
+  export const existsSync: (...args: any[]) => any;
+  export const readdirSync: (...args: any[]) => any;
+  export const readFileSync: (...args: any[]) => any;
 }
 
 declare module 'node:path' {
-  export const extname: (path: string) => string;
-  export const join: (...paths: readonly string[]) => string;
-  export const relative: (from: string, to: string) => string;
+  export const dirname: (...args: any[]) => any;
+  export const extname: (...args: any[]) => any;
+  export const join: (...args: any[]) => any;
+  export const relative: (...args: any[]) => any;
+  export const resolve: (...args: any[]) => any;
 }
