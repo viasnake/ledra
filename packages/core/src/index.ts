@@ -1,5 +1,8 @@
+/// <reference path="./node-shims.d.ts" />
 import type { Diagnostics, EntityRecord } from '@ledra/types';
 import { IMPLEMENTATION_ORDER } from '@ledra/types';
+import { readdirSync, readFileSync } from 'node:fs';
+import { extname, join, relative } from 'node:path';
 
 export const packageName = '@ledra/core';
 
@@ -55,6 +58,94 @@ export const createReadOnlyRepository = (
         .filter((path): path is string => typeof path === 'string')
     })
   });
+};
+
+const collectRegistryFiles = (registryPath: string): readonly string[] => {
+  const queue = [registryPath];
+  const files: string[] = [];
+
+  while (queue.length > 0) {
+    const currentPath = queue.shift();
+    if (currentPath === undefined) {
+      continue;
+    }
+
+    for (const entry of readdirSync(currentPath, { withFileTypes: true })) {
+      const entryPath = join(currentPath, entry.name);
+      if (entry.isDirectory()) {
+        queue.push(entryPath);
+      } else if (entry.isFile()) {
+        const extension = extname(entry.name).toLowerCase();
+        if (extension === '.json') {
+          files.push(entryPath);
+        }
+      }
+    }
+  }
+
+  return files.sort((left, right) => left.localeCompare(right));
+};
+
+const isEntityRecord = (value: unknown): value is Pick<EntityRecord, 'id' | 'type' | 'title'> & Partial<EntityRecord> => {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+
+  const candidate = value as Partial<EntityRecord>;
+  return typeof candidate.id === 'string' && typeof candidate.type === 'string' && typeof candidate.title === 'string';
+};
+
+const normalizeEntity = (entity: Pick<EntityRecord, 'id' | 'type' | 'title'> & Partial<EntityRecord>): EntityRecord => {
+  const normalized: EntityRecord = {
+    id: entity.id,
+    type: entity.type,
+    title: entity.title,
+    tags: Array.isArray(entity.tags) ? entity.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+    relations: Array.isArray(entity.relations)
+      ? entity.relations.filter(
+          (relation): relation is { type: string; targetId: string } =>
+            typeof relation === 'object' &&
+            relation !== null &&
+            typeof (relation as { type?: unknown }).type === 'string' &&
+            typeof (relation as { targetId?: unknown }).targetId === 'string'
+        )
+      : []
+  };
+
+  if (typeof entity.summary === 'string') {
+    normalized.summary = entity.summary;
+  }
+
+  if (typeof entity.sourceFilePath === 'string') {
+    normalized.sourceFilePath = entity.sourceFilePath;
+  }
+
+  return normalized;
+};
+
+const parseEntityDocument = (document: unknown): readonly EntityRecord[] => {
+  if (Array.isArray(document)) {
+    return document.filter(isEntityRecord).map(normalizeEntity);
+  }
+
+  if (typeof document === 'object' && document !== null && 'entities' in document) {
+    const entities = (document as { entities?: unknown }).entities;
+    if (Array.isArray(entities)) {
+      return entities.filter(isEntityRecord).map(normalizeEntity);
+    }
+  }
+
+  return isEntityRecord(document) ? [normalizeEntity(document)] : [];
+};
+
+export const createReadOnlyRepositoryFromFileSystem = (registryPath: string) => {
+  const entities = collectRegistryFiles(registryPath).flatMap((filePath) => {
+    const document = JSON.parse(readFileSync(filePath, 'utf8')) as unknown;
+    const sourceFilePath = relative(registryPath, filePath);
+    return parseEntityDocument(document).map((entity) => ({ ...entity, sourceFilePath }));
+  });
+
+  return createReadOnlyRepository(entities);
 };
 
 export type ReadOnlyRepository = ReturnType<typeof createReadOnlyRepository>;
