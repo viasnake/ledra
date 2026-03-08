@@ -14,6 +14,27 @@
     "resolveJsonModule": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "baseUrl": ".",
+    "paths": {
+      "@ledra/types": [
+        "packages/types/src/index.ts"
+      ],
+      "@ledra/schemas": [
+        "packages/schemas/src/index.ts"
+      ],
+      "@ledra/core": [
+        "packages/core/src/index.ts"
+      ],
+      "@ledra/validator": [
+        "packages/validator/src/index.ts"
+      ],
+      "@ledra/bundle": [
+        "packages/bundle/src/index.ts"
+      ],
+      "@ledra/search": [
+        "packages/search/src/index.ts"
+      ]
+    }
   }
 }
