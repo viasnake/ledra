@@ -36,8 +36,21 @@ export type LedraBundle = {
   entities: readonly EntityRecord[];
 };
 
+export type ValidationIssueCode =
+  | 'missing-id'
+  | 'missing-type'
+  | 'duplicate-entity-id'
+  | 'duplicate-relation-id'
+  | 'missing-reference'
+  | 'invalid-relation-target'
+  | 'prefix-overlap'
+  | 'duplicate-allocation-ip'
+  | 'duplicate-hostname'
+  | 'duplicate-vlan-id-per-site'
+  | 'gateway-outside-prefix';
+
 export type ValidationIssue = {
-  code: 'missing-id' | 'missing-type' | 'invalid-relation-target';
+  code: ValidationIssueCode;
   message: string;
   entityId?: string;
   sourceFilePath?: string;
