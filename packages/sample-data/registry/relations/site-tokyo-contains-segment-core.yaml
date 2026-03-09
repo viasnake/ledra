@@ -1,0 +1,8 @@
+id: relation-site-tokyo-contains-segment-core
+type: contains
+source:
+  type: site
+  id: site-tokyo
+target:
+  type: segment
+  id: segment-core

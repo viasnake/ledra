@@ -1,0 +1,8 @@
+id: relation-dns-located-at-site
+type: located_at
+source:
+  type: dns_record
+  id: dns-record-app
+target:
+  type: site
+  id: site-tokyo

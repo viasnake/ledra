@@ -1,8 +1,11 @@
 id: allocation-app-01
 type: allocation
 title: app-01 allocation
+summary: Primary address assigned to app-01
 tags:
   - ipam
-relations:
-  - type: assigned_to
-    targetId: host-app-01
+attributes:
+  address: 10.0.0.10
+  prefixId: prefix-10-0-0-0-24
+  hostId: host-app-01
+  role: primary

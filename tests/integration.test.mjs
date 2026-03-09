@@ -6,20 +6,27 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const registryPath = 'packages/sample-data/registry';
+const cliEntry = 'apps/cli/dist/apps/cli/src/index.js';
 
 const runCli = (args) => {
-  const output = execFileSync('node', ['apps/cli/dist/apps/cli/src/index.js', ...args], {
+  const output = execFileSync('node', [cliEntry, ...args], {
     encoding: 'utf8'
   });
 
   return JSON.parse(output);
 };
 
-test('ledra validate succeeds with sample registry', () => {
+test('ledra validate succeeds with sample registry graph', () => {
   const result = runCli(['validate', '--registry', registryPath]);
 
-  assert.equal(result.result.ok, true);
-  assert.equal(result.result.issues.length, 0);
+  assert.equal(result.validation.ok, true);
+  assert.equal(result.validation.diagnostics.length, 0);
+  assert.deepEqual(result.diagnostics.counts, {
+    entities: 8,
+    relations: 8,
+    views: 2,
+    policies: 1
+  });
 });
 
 test('ledra build outputs a static bundle and writes --out', () => {
@@ -30,38 +37,38 @@ test('ledra build outputs a static bundle and writes --out', () => {
     const result = runCli(['build', '--registry', registryPath, '--out', outPath]);
 
     assert.equal(result.bundle.kind, 'static-bundle');
-    assert.equal(result.bundle.entities.length, 8);
-    assert.deepEqual(result.bundle.types, [
-      'allocation',
-      'dns_record',
-      'host',
-      'prefix',
-      'segment',
-      'service',
-      'site',
-      'vlan'
-    ]);
+    assert.equal(result.bundle.graph.entities.length, 8);
+    assert.equal(result.bundle.graph.relations.length, 8);
+    assert.equal(result.bundle.graph.views.length, 2);
+    assert.equal(result.bundle.graph.policies.length, 1);
 
     const writtenBundle = JSON.parse(readFileSync(outPath, 'utf8'));
     assert.equal(writtenBundle.kind, 'static-bundle');
-    assert.equal(writtenBundle.entities.length, 8);
+    assert.equal(writtenBundle.graph.entities.length, 8);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
 });
 
-test('diagnostics include registry source file paths', () => {
+test('diagnostics include source file paths across entity and registry records', () => {
   const result = runCli(['validate', '--registry', registryPath]);
 
-  assert.equal(result.diagnostics.sourceFilePaths.length, 8);
+  assert.equal(result.diagnostics.sourceFilePaths.length, 19);
   assert.ok(
-    result.diagnostics.sourceFilePaths.every((entry) =>
-      entry.startsWith('packages/sample-data/registry/entities/')
-    )
+    result.diagnostics.sourceFilePaths.some((entry) => entry.startsWith('registry/entities/'))
+  );
+  assert.ok(
+    result.diagnostics.sourceFilePaths.some((entry) => entry.startsWith('registry/relations/'))
+  );
+  assert.ok(
+    result.diagnostics.sourceFilePaths.some((entry) => entry.startsWith('registry/views/'))
+  );
+  assert.ok(
+    result.diagnostics.sourceFilePaths.some((entry) => entry.startsWith('registry/policies/'))
   );
 });
 
-test('inspect supports structured search query input', () => {
+test('inspect supports structured query input over attributes', () => {
   const query = JSON.stringify({ type: 'site', text: 'tokyo' });
   const result = runCli(['inspect', '--registry', registryPath, '--query', query]);
 
@@ -79,6 +86,7 @@ test('export writes a bundle file when --out is provided', () => {
     assert.equal(result.kind, 'static-bundle');
     const writtenBundle = JSON.parse(readFileSync(outPath, 'utf8'));
     assert.equal(writtenBundle.kind, 'static-bundle');
+    assert.equal(writtenBundle.graph.views.length, 2);
   } finally {
     rmSync(tempDir, { recursive: true, force: true });
   }
@@ -88,14 +96,7 @@ test('serve starts a read-only HTTP API from CLI', async () => {
   const port = 43117;
   const child = spawn(
     'node',
-    [
-      'apps/cli/dist/apps/cli/src/index.js',
-      'serve',
-      '--registry',
-      registryPath,
-      '--port',
-      String(port)
-    ],
+    [cliEntry, 'serve', '--registry', registryPath, '--port', String(port)],
     {
       stdio: ['ignore', 'pipe', 'pipe']
     }
@@ -132,17 +133,26 @@ test('serve starts a read-only HTTP API from CLI', async () => {
     const search = JSON.parse(
       execFileSync(
         'curl',
-        ['-sS', `http://127.0.0.1:${String(port)}/api/search?q=${encodeURIComponent('type=site')}`],
+        [
+          '-sS',
+          `http://127.0.0.1:${String(port)}/api/search?q=${encodeURIComponent('attributes.siteId=site-tokyo')}`
+        ],
         {
           encoding: 'utf8'
         }
       )
     );
+    const views = JSON.parse(
+      execFileSync('curl', ['-sS', `http://127.0.0.1:${String(port)}/api/views`], {
+        encoding: 'utf8'
+      })
+    );
 
     assert.ok(Array.isArray(types));
     assert.ok(types.includes('site'));
-    assert.equal(search.length, 1);
-    assert.equal(search[0].id, 'site-tokyo');
+    assert.equal(search.length, 4);
+    assert.equal(views.length, 2);
+    assert.equal(views[0].kind, 'view');
   } finally {
     child.kill('SIGTERM');
   }

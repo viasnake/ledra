@@ -2,8 +2,13 @@
   "id": "dns-record-app",
   "type": "dns_record",
   "title": "app.example.test",
+  "summary": "Authoritative application DNS entry.",
   "tags": ["dns"],
-  "relations": [
-    { "type": "located_at", "targetId": "site-tokyo" }
-  ]
+  "attributes": {
+    "name": "app",
+    "fqdn": "app.example.test",
+    "recordType": "A",
+    "value": "10.0.0.10",
+    "zone": "example.test"
+  }
 }

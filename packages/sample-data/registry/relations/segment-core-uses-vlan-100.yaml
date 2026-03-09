@@ -1,0 +1,8 @@
+id: relation-segment-core-uses-vlan-100
+type: uses
+source:
+  type: segment
+  id: segment-core
+target:
+  type: vlan
+  id: vlan-100

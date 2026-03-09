@@ -1,9 +1,0 @@
-{
-  "id": "host-app-01",
-  "type": "host",
-  "title": "app-01",
-  "tags": ["linux"],
-  "relations": [
-    { "type": "runs", "targetId": "service-web" }
-  ]
-}

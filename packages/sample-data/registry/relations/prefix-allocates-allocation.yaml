@@ -1,0 +1,8 @@
+id: relation-prefix-allocates-allocation
+type: allocates
+source:
+  type: prefix
+  id: prefix-10-0-0-0-24
+target:
+  type: allocation
+  id: allocation-app-01

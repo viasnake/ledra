@@ -1,0 +1,8 @@
+id: relation-host-runs-service
+type: runs
+source:
+  type: host
+  id: host-app-01
+target:
+  type: service
+  id: service-web

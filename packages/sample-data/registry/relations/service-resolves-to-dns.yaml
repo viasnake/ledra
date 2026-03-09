@@ -1,0 +1,8 @@
+id: relation-service-resolves-to-dns
+type: resolves_to
+source:
+  type: service
+  id: service-web
+target:
+  type: dns_record
+  id: dns-record-app

@@ -1,0 +1,8 @@
+id: relation-vlan-100-provides-prefix
+type: provides
+source:
+  type: vlan
+  id: vlan-100
+target:
+  type: prefix
+  id: prefix-10-0-0-0-24

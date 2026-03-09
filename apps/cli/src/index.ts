@@ -1,4 +1,5 @@
 /// <reference path="./node-shims.d.ts" />
+
 declare const process:
   | {
       argv: string[];
@@ -13,7 +14,7 @@ import { buildBundle } from '@ledra/bundle';
 import { loadRegistryFromFs } from '@ledra/core';
 import { createHttpEntrypoint } from '@ledra/api';
 import { searchEntities, type SearchQueryInput } from '@ledra/search';
-import { validateEntities } from '@ledra/validator';
+import { validateRegistry } from '@ledra/validator';
 
 export const appName = '@ledra/cli';
 
@@ -117,14 +118,12 @@ const parseSearchQuery = (query: string | undefined): SearchQueryInput => {
   return normalized;
 };
 
-const createCommandOutput = (registryRoot: string) => {
+const loadRegistryState = (registryRoot: string) => {
   const repository = loadRegistryFromFs(registryRoot);
-  const diagnostics = repository.diagnostics();
-
   return {
     repository,
-    diagnostics,
-    validation: validateEntities(repository.listEntities())
+    diagnostics: repository.diagnostics(),
+    validation: validateRegistry(repository)
   };
 };
 
@@ -134,11 +133,11 @@ export const runLedraCli = (args: readonly string[]): string => {
 
   switch (parsed.command) {
     case 'validate': {
-      const { diagnostics, validation } = createCommandOutput(registryRoot);
-      return JSON.stringify({ result: validation, diagnostics }, null, 2);
+      const { diagnostics, validation } = loadRegistryState(registryRoot);
+      return JSON.stringify({ validation, diagnostics }, null, 2);
     }
     case 'build': {
-      const { repository, diagnostics, validation } = createCommandOutput(registryRoot);
+      const { repository, diagnostics, validation } = loadRegistryState(registryRoot);
       const bundle = buildBundle(repository);
       const payload = { bundle, diagnostics, validation };
 
@@ -149,12 +148,12 @@ export const runLedraCli = (args: readonly string[]): string => {
       return JSON.stringify(payload, null, 2);
     }
     case 'inspect': {
-      const { repository } = createCommandOutput(registryRoot);
+      const { repository } = loadRegistryState(registryRoot);
       const query = parseSearchQuery(parsed.query);
       return JSON.stringify(searchEntities(query, repository), null, 2);
     }
     case 'export': {
-      const { repository } = createCommandOutput(registryRoot);
+      const { repository } = loadRegistryState(registryRoot);
       const bundle = buildBundle(repository);
 
       if (parsed.outPath) {

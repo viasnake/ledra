@@ -1,4 +1,5 @@
 /// <reference path="./node-shims.d.ts" />
+
 declare const process:
   | {
       argv: string[];
@@ -7,11 +8,11 @@ declare const process:
     }
   | undefined;
 
-import { buildBundle } from '@ledra/bundle';
 import { loadRegistryFromFs } from '@ledra/core';
 import { searchEntities, type SearchQueryInput } from '@ledra/search';
 import { API_ENDPOINTS } from '@ledra/schemas';
-import { validateEntities } from '@ledra/validator';
+import type { BuiltinEntityTypeName } from '@ledra/types';
+import { validateRegistry } from '@ledra/validator';
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 
 export const appName = '@ledra/api';
@@ -37,14 +38,14 @@ const notFound = (response: ServerResponse): void => {
   sendJson(response, 404, { error: 'Not Found', readOnly: true });
 };
 
-const parseEntityRoute = (pathname: string): { type: string; id: string } | null => {
+const parseEntityRoute = (pathname: string): { type: BuiltinEntityTypeName; id: string } | null => {
   const match = pathname.match(/^\/api\/entities\/([^/]+)\/([^/]+)$/u);
   if (!match?.[1] || !match[2]) {
     return null;
   }
 
   return {
-    type: decodeURIComponent(match[1]),
+    type: decodeURIComponent(match[1]) as BuiltinEntityTypeName,
     id: decodeURIComponent(match[2])
   };
 };
@@ -66,18 +67,18 @@ const parseSearchInput = (requestUrl: URL): SearchQueryInput => {
 
 export const createReadOnlyApi = (registryRoot = DEFAULT_REGISTRY_ROOT) => {
   const repository = loadRegistryFromFs(registryRoot);
-  const validation = validateEntities(repository.listEntities());
+  const validation = validateRegistry(repository);
 
   return {
     endpoints: API_ENDPOINTS,
     '/api/types': () => repository.listTypes(),
     '/api/entities': () => repository.listEntities(),
-    '/api/entities/{type}/{id}': (type: string, id: string) =>
+    '/api/entities/{type}/{id}': (type: BuiltinEntityTypeName, id: string) =>
       repository.findEntity(type, id) ?? null,
     '/api/relations': () => repository.listRelations(),
     '/api/search': (query: SearchQueryInput) => searchEntities(query, repository),
     '/api/diagnostics': () => ({ repository: repository.diagnostics(), validation }),
-    '/api/views': () => ({ bundle: buildBundle(repository), readOnly: true })
+    '/api/views': () => repository.listViews()
   };
 };
 

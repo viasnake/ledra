@@ -1,9 +1,0 @@
-{
-  "id": "dns-record-app",
-  "type": "dns_record",
-  "title": "app.example.test",
-  "tags": ["dns"],
-  "relations": [
-    { "type": "located_at", "targetId": "site-tokyo" }
-  ]
-}

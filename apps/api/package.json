@@ -15,6 +15,7 @@
     "@ledra/bundle": "0.1.0",
     "@ledra/core": "0.1.0",
     "@ledra/schemas": "0.1.0",
-    "@ledra/search": "0.1.0"
+    "@ledra/search": "0.1.0",
+    "@ledra/validator": "0.1.0"
   }
 }

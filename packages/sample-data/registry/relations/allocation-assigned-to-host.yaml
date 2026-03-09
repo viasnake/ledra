@@ -1,0 +1,8 @@
+id: relation-allocation-assigned-to-host
+type: assigned_to
+source:
+  type: allocation
+  id: allocation-app-01
+target:
+  type: host
+  id: host-app-01

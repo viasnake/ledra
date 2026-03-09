@@ -17,31 +17,16 @@
     "outDir": "dist",
     "baseUrl": ".",
     "paths": {
-      "@ledra/types": [
-        "packages/types/src/index.ts"
-      ],
-      "@ledra/schemas": [
-        "packages/schemas/src/index.ts"
-      ],
-      "@ledra/core": [
-        "packages/core/src/index.ts"
-      ],
-      "@ledra/validator": [
-        "packages/validator/src/index.ts"
-      ],
-      "@ledra/bundle": [
-        "packages/bundle/src/index.ts"
-      ],
-      "@ledra/search": [
-        "packages/search/src/index.ts"
-      ],
-      "@ledra/sample-data": [
-        "packages/sample-data/src/index.ts"
-      ]
+      "@ledra/types": ["packages/types/src/index.ts"],
+      "@ledra/schemas": ["packages/schemas/src/index.ts"],
+      "@ledra/core": ["packages/core/src/index.ts"],
+      "@ledra/validator": ["packages/validator/src/index.ts"],
+      "@ledra/bundle": ["packages/bundle/src/index.ts"],
+      "@ledra/search": ["packages/search/src/index.ts"],
+      "@ledra/renderer": ["packages/renderer/src/index.ts"],
+      "@ledra/sample-data": ["packages/sample-data/src/index.ts"],
+      "@ledra/api": ["apps/api/src/index.ts"]
     },
-    "typeRoots": [
-      "./types",
-      "./node_modules/@types"
-    ]
+    "typeRoots": ["./types", "./node_modules/@types"]
   }
 }

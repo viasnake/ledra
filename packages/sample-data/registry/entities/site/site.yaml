@@ -1,9 +1,11 @@
 id: site-tokyo
 type: site
 title: Tokyo DC
-summary: Primary site
+summary: Primary site for the sample registry
 tags:
   - production
-relations:
-  - type: contains
-    targetId: segment-core
+  - apac
+attributes:
+  name: tokyo
+  code: tyo1
+  region: ap-northeast

@@ -1,10 +1,10 @@
-import { createReadOnlyRepository, type ReadOnlyRepository } from '@ledra/core';
-import type { EntityRecord } from '@ledra/types';
+import type { ReadOnlyRepository } from '@ledra/core';
+import type { EntityRecord, RegistryGraph, RelationRecord } from '@ledra/types';
 
 export const packageName = '@ledra/search';
 
 export type SearchAttributeFilter = {
-  field: keyof EntityRecord | string;
+  field: string;
   operator: '=' | '~';
   value: string;
 };
@@ -19,18 +19,22 @@ export type StructuredSearchQuery = {
 
 export type SearchQueryInput = string | StructuredSearchQuery;
 
+const isRepository = (value: RegistryGraph | ReadOnlyRepository): value is ReadOnlyRepository =>
+  typeof value === 'object' &&
+  value !== null &&
+  'graph' in value &&
+  typeof value.graph === 'function';
+
+const toGraph = (value: RegistryGraph | ReadOnlyRepository): RegistryGraph =>
+  isRepository(value) ? value.graph() : value;
+
 const entityOrder = (left: EntityRecord, right: EntityRecord): number => {
   const typeCompare = left.type.localeCompare(right.type);
   if (typeCompare !== 0) {
     return typeCompare;
   }
 
-  const idCompare = left.id.localeCompare(right.id);
-  if (idCompare !== 0) {
-    return idCompare;
-  }
-
-  return left.title.localeCompare(right.title);
+  return left.id.localeCompare(right.id);
 };
 
 const toNormalizedString = (value: unknown): string =>
@@ -38,45 +42,15 @@ const toNormalizedString = (value: unknown): string =>
     .trim()
     .toLowerCase();
 
-const toNormalizedValues = (value: unknown): readonly string[] => {
-  if (Array.isArray(value)) {
-    return value.map((entry) => toNormalizedString(entry));
-  }
-
-  return [toNormalizedString(value)];
-};
-
 const normalizeStructuredQuery = (query: SearchQueryInput): StructuredSearchQuery => {
   if (typeof query !== 'string') {
-    const normalized: StructuredSearchQuery = {};
-
-    if (query.text?.trim()) {
-      normalized.text = query.text.trim();
-    }
-    if (query.type?.trim()) {
-      normalized.type = query.type.trim();
-    }
-    if (query.relatedTo?.trim()) {
-      normalized.relatedTo = query.relatedTo.trim();
-    }
-    if (query.relationType?.trim()) {
-      normalized.relationType = query.relationType.trim();
-    }
-    if (query.attributes?.length) {
-      const attributes = query.attributes
-        .map((filter) => ({
-          ...filter,
-          field: filter.field.trim(),
-          value: filter.value.trim()
-        }))
-        .filter((filter) => filter.field.length > 0);
-
-      if (attributes.length > 0) {
-        normalized.attributes = attributes;
-      }
-    }
-
-    return normalized;
+    return {
+      ...(query.text?.trim() ? { text: query.text.trim() } : {}),
+      ...(query.type?.trim() ? { type: query.type.trim() } : {}),
+      ...(query.relatedTo?.trim() ? { relatedTo: query.relatedTo.trim() } : {}),
+      ...(query.relationType?.trim() ? { relationType: query.relationType.trim() } : {}),
+      ...(query.attributes?.length ? { attributes: query.attributes } : {})
+    };
   }
 
   const trimmed = query.trim();
@@ -84,14 +58,14 @@ const normalizeStructuredQuery = (query: SearchQueryInput): StructuredSearchQuer
     return {};
   }
 
-  const tokenized = trimmed.split(/\s+/);
+  const tokens = trimmed.split(/\s+/u);
   const attributes: SearchAttributeFilter[] = [];
   const textParts: string[] = [];
   let type: string | undefined;
   let relatedTo: string | undefined;
   let relationType: string | undefined;
 
-  for (const token of tokenized) {
+  for (const token of tokens) {
     if (token.startsWith('type=')) {
       type = token.slice('type='.length);
       continue;
@@ -107,13 +81,13 @@ const normalizeStructuredQuery = (query: SearchQueryInput): StructuredSearchQuer
       continue;
     }
 
-    const exactMatch = token.match(/^([^=~\s]+)=([^\s]+)$/);
+    const exactMatch = token.match(/^([^=~\s]+)=([^\s]+)$/u);
     if (exactMatch?.[1] && exactMatch[2]) {
       attributes.push({ field: exactMatch[1], operator: '=', value: exactMatch[2] });
       continue;
     }
 
-    const partialMatch = token.match(/^([^=~\s]+)~([^\s]+)$/);
+    const partialMatch = token.match(/^([^=~\s]+)~([^\s]+)$/u);
     if (partialMatch?.[1] && partialMatch[2]) {
       attributes.push({ field: partialMatch[1], operator: '~', value: partialMatch[2] });
       continue;
@@ -122,45 +96,63 @@ const normalizeStructuredQuery = (query: SearchQueryInput): StructuredSearchQuer
     textParts.push(token);
   }
 
-  const parsed: StructuredSearchQuery = {};
-  const text = textParts.join(' ').trim();
+  return {
+    ...(textParts.length > 0 ? { text: textParts.join(' ') } : {}),
+    ...(type?.trim() ? { type: type.trim() } : {}),
+    ...(relatedTo?.trim() ? { relatedTo: relatedTo.trim() } : {}),
+    ...(relationType?.trim() ? { relationType: relationType.trim() } : {}),
+    ...(attributes.length > 0 ? { attributes } : {})
+  };
+};
 
-  if (text) {
-    parsed.text = text;
-  }
-  if (type?.trim()) {
-    parsed.type = type.trim();
-  }
-  if (relatedTo?.trim()) {
-    parsed.relatedTo = relatedTo.trim();
-  }
-  if (relationType?.trim()) {
-    parsed.relationType = relationType.trim();
-  }
-  if (attributes.length > 0) {
-    parsed.attributes = attributes;
-  }
+const getFieldValues = (entity: EntityRecord, field: string): readonly string[] => {
+  switch (field) {
+    case 'id':
+      return [entity.id];
+    case 'type':
+      return [entity.type];
+    case 'title':
+      return [entity.title];
+    case 'summary':
+      return [entity.summary ?? ''];
+    case 'tags':
+      return entity.tags;
+    default: {
+      if (field.startsWith('attributes.')) {
+        const attributeKey = field.slice('attributes.'.length);
+        const value = (entity.attributes as Record<string, unknown>)[attributeKey];
+        if (Array.isArray(value)) {
+          return value.map((entry) => String(entry));
+        }
 
-  return parsed;
+        return [String(value ?? '')];
+      }
+
+      const value = (entity.attributes as Record<string, unknown>)[field];
+      if (Array.isArray(value)) {
+        return value.map((entry) => String(entry));
+      }
+
+      return [String(value ?? '')];
+    }
+  }
 };
 
 const matchesAttribute = (entity: EntityRecord, filter: SearchAttributeFilter): boolean => {
-  const haystacks = toNormalizedValues((entity as Record<string, unknown>)[filter.field]);
+  const haystacks = getFieldValues(entity, filter.field).map((value) => toNormalizedString(value));
   const needle = toNormalizedString(filter.value);
 
   if (!needle) {
     return true;
   }
 
-  if (filter.operator === '=') {
-    return haystacks.some((haystack) => haystack === needle);
-  }
-
-  return haystacks.some((haystack) => haystack.includes(needle));
+  return filter.operator === '='
+    ? haystacks.some((haystack) => haystack === needle)
+    : haystacks.some((haystack) => haystack.includes(needle));
 };
 
 const buildRelatedEntityIds = (
-  repository: ReadOnlyRepository,
+  relations: readonly RelationRecord[],
   relatedTo: string,
   relationType: string
 ): ReadonlySet<string> => {
@@ -168,33 +160,29 @@ const buildRelatedEntityIds = (
   const normalizedRelatedTo = relatedTo.toLowerCase();
 
   return new Set(
-    repository
-      .listRelations()
-      .filter(
-        (relation) =>
-          !normalizedRelationType || relation.relationType.toLowerCase() === normalizedRelationType
-      )
-      .flatMap((relation) => {
-        const sourceId = relation.sourceId.toLowerCase();
-        const targetId = relation.targetId.toLowerCase();
-
-        if (sourceId === normalizedRelatedTo) {
-          return [targetId];
-        }
-
-        if (targetId === normalizedRelatedTo) {
-          return [sourceId];
-        }
-
+    relations.flatMap((relation) => {
+      if (normalizedRelationType && relation.type.toLowerCase() !== normalizedRelationType) {
         return [];
-      })
+      }
+
+      if (relation.source.id.toLowerCase() === normalizedRelatedTo) {
+        return [relation.target.id.toLowerCase()];
+      }
+
+      if (relation.target.id.toLowerCase() === normalizedRelatedTo) {
+        return [relation.source.id.toLowerCase()];
+      }
+
+      return [];
+    })
   );
 };
 
 export const searchEntities = (
   query: SearchQueryInput,
-  repository: ReadOnlyRepository = createReadOnlyRepository({ entities: [] })
+  source: RegistryGraph | ReadOnlyRepository
 ): readonly EntityRecord[] => {
+  const graph = toGraph(source);
   const normalizedQuery = normalizeStructuredQuery(query);
 
   const text = normalizedQuery.text ? normalizedQuery.text.toLowerCase() : '';
@@ -204,31 +192,38 @@ export const searchEntities = (
     ? normalizedQuery.relationType.toLowerCase()
     : '';
   const attributes = normalizedQuery.attributes ?? [];
-
   const relatedEntityIds = relatedTo
-    ? buildRelatedEntityIds(repository, relatedTo, relationType)
+    ? buildRelatedEntityIds(graph.relations, relatedTo, relationType)
     : undefined;
 
-  const filtered = repository.listEntities().filter((entity) => {
-    if (type && entity.type.toLowerCase() !== type) {
-      return false;
-    }
+  return [...graph.entities]
+    .filter((entity) => {
+      if (type && entity.type.toLowerCase() !== type) {
+        return false;
+      }
 
-    if (relatedTo && relatedEntityIds && !relatedEntityIds.has(entity.id.toLowerCase())) {
-      return false;
-    }
+      if (relatedTo && relatedEntityIds && !relatedEntityIds.has(entity.id.toLowerCase())) {
+        return false;
+      }
 
-    if (!attributes.every((attribute) => matchesAttribute(entity, attribute))) {
-      return false;
-    }
+      if (!attributes.every((filter) => matchesAttribute(entity, filter))) {
+        return false;
+      }
 
-    if (!text) {
-      return true;
-    }
+      if (!text) {
+        return true;
+      }
 
-    const haystacks = [entity.id, entity.title, entity.summary ?? '', ...entity.tags];
-    return haystacks.some((part) => part.toLowerCase().includes(text));
-  });
+      const searchParts = [
+        entity.id,
+        entity.type,
+        entity.title,
+        entity.summary ?? '',
+        ...entity.tags,
+        ...Object.values(entity.attributes).map((value) => String(value ?? ''))
+      ];
 
-  return [...filtered].sort(entityOrder);
+      return searchParts.some((part) => part.toLowerCase().includes(text));
+    })
+    .sort(entityOrder);
 };

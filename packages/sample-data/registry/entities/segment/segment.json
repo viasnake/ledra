@@ -2,8 +2,11 @@
   "id": "segment-core",
   "type": "segment",
   "title": "Core Segment",
+  "summary": "Primary routed segment for the Tokyo site.",
   "tags": ["core"],
-  "relations": [
-    { "type": "uses", "targetId": "vlan-100" }
-  ]
+  "attributes": {
+    "name": "core",
+    "siteId": "site-tokyo",
+    "role": "routing"
+  }
 }

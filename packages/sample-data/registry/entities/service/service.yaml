@@ -1,8 +1,12 @@
 id: service-web
 type: service
 title: Web Service
+summary: Internal application service
 tags:
   - http
-relations:
-  - type: resolves_to
-    targetId: dns-record-app
+attributes:
+  name: web
+  hostId: host-app-01
+  protocol: http
+  port: 8080
+  exposure: internal

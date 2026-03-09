@@ -1,73 +1,72 @@
 /// <reference path="./node-shims.d.ts" />
+
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, extname, join, relative, resolve } from 'node:path';
-import type { Diagnostics, EntityRecord } from '@ledra/types';
-import { IMPLEMENTATION_ORDER } from '@ledra/types';
+import { extname, join, relative, resolve } from 'node:path';
+import { load as loadYaml } from 'js-yaml';
+import { REGISTRY_LAYOUT } from '@ledra/schemas';
+import {
+  IMPLEMENTATION_ORDER,
+  type BuiltinEntityTypeName,
+  type EntityRecord,
+  type PolicyRecord,
+  type RegistryDiagnostics,
+  type RegistryGraph,
+  type RelationRecord,
+  type ViewRecord
+} from '@ledra/types';
 
 export const packageName = '@ledra/core';
 
-type RelationRecord = {
-  sourceType: string;
-  sourceId: string;
-  relationType: string;
-  targetId: string;
-  sourceFilePath?: string;
-};
-
-type RawRelationRecord = {
-  sourceType?: unknown;
-  sourceId?: unknown;
-  relationType?: unknown;
-  type?: unknown;
-  targetId?: unknown;
-};
-
-type RepositoryInput = {
-  entities: readonly EntityRecord[];
-  relations?: readonly RelationRecord[];
-};
+type RecordLike = Record<string, unknown>;
 
 const normalizePath = (filePath: string): string => filePath.replaceAll('\\', '/');
 
-const resolveRegistryDirectory = (registryRoot: string): string => {
-  const absoluteRoot = resolve(registryRoot);
-  const directEntitiesPath = join(absoluteRoot, 'entities');
-  const directRelationsPath = join(absoluteRoot, 'relations');
+const REQUIRED_DIRECTORIES = [
+  REGISTRY_LAYOUT.entitiesDirectory,
+  REGISTRY_LAYOUT.relationsDirectory,
+  REGISTRY_LAYOUT.viewsDirectory,
+  REGISTRY_LAYOUT.policiesDirectory
+] as const;
 
-  if (existsSync(directEntitiesPath) || existsSync(directRelationsPath)) {
-    return absoluteRoot;
-  }
+const isRecordLike = (value: unknown): value is RecordLike =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
-  const nestedRegistryPath = join(absoluteRoot, 'registry');
+const asString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+
+const asStringArray = (value: unknown): readonly string[] =>
+  Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === 'string' && entry.trim().length > 0)
+    : [];
+
+const asBuiltinEntityType = (value: unknown): BuiltinEntityTypeName => {
+  const normalized = asString(value);
   if (
-    existsSync(join(nestedRegistryPath, 'entities')) ||
-    existsSync(join(nestedRegistryPath, 'relations'))
+    normalized === 'site' ||
+    normalized === 'segment' ||
+    normalized === 'vlan' ||
+    normalized === 'prefix' ||
+    normalized === 'allocation' ||
+    normalized === 'host' ||
+    normalized === 'service' ||
+    normalized === 'dns_record'
   ) {
-    return nestedRegistryPath;
+    return normalized;
   }
 
-  return absoluteRoot;
+  return 'site';
 };
 
-const findRepositoryRoot = (registryRoot: string): string => {
-  let current = resolve(registryRoot);
-  let bestMatch: string | undefined;
+const toAttributeRecord = (value: unknown): RecordLike => (isRecordLike(value) ? value : {});
 
-  while (true) {
-    if (existsSync(join(current, '.git')) || existsSync(join(current, 'pnpm-workspace.yaml'))) {
-      bestMatch = current;
-    }
+const readStructuredFile = (filePath: string): unknown => {
+  const content = readFileSync(filePath, 'utf8');
+  const extension = extname(filePath).toLowerCase();
 
-    const parent = dirname(current);
-    if (parent === current) {
-      return bestMatch ?? resolve(registryRoot, '..');
-    }
-
-    current = parent;
-  }
+  return extension === '.json' ? JSON.parse(content) : loadYaml(content);
 };
 
-const findDataFiles = (directoryPath: string): string[] => {
+const listStructuredFiles = (directoryPath: string): string[] => {
   if (!existsSync(directoryPath)) {
     return [];
   }
@@ -75,9 +74,8 @@ const findDataFiles = (directoryPath: string): string[] => {
   return readdirSync(directoryPath, { withFileTypes: true }).flatMap(
     (entry: { name: string; isDirectory: () => boolean }) => {
       const entryPath = join(directoryPath, entry.name);
-
       if (entry.isDirectory()) {
-        return findDataFiles(entryPath);
+        return listStructuredFiles(entryPath);
       }
 
       const extension = extname(entry.name).toLowerCase();
@@ -88,299 +86,237 @@ const findDataFiles = (directoryPath: string): string[] => {
   );
 };
 
-const parseScalar = (value: string): unknown => {
-  const trimmed = value.trim();
-  if (trimmed === 'true') {
-    return true;
+const resolveRepositoryRoot = (registryRoot: string): string => resolve(registryRoot, '..');
+
+const ensureCanonicalLayout = (registryRoot: string): void => {
+  for (const directory of REQUIRED_DIRECTORIES) {
+    if (!existsSync(join(registryRoot, directory))) {
+      throw new Error(
+        `Registry layout is invalid. Expected '${directory}' under '${normalizePath(registryRoot)}'.`
+      );
+    }
   }
-  if (trimmed === 'false') {
-    return false;
-  }
-  if (trimmed === 'null') {
-    return null;
-  }
-  const numeric = Number(trimmed);
-  if (!Number.isNaN(numeric) && trimmed !== '') {
-    return numeric;
-  }
-  return trimmed;
 };
 
-const parseSimpleYaml = (content: string): unknown => {
-  const lines = content
-    .split(/\r?\n/u)
-    .filter((line) => line.trim().length > 0 && !line.trimStart().startsWith('#'));
-
-  const root: Record<string, unknown> = {};
-  const stack: Array<{ indent: number; value: unknown }> = [{ indent: -1, value: root }];
-
-  for (const line of lines) {
-    const indent = line.search(/\S/u);
-    const trimmed = line.trim();
-
-    while (stack.length > 1 && indent <= stack[stack.length - 1]!.indent) {
-      stack.pop();
-    }
-
-    const parent = stack[stack.length - 1]?.value;
-
-    if (trimmed.startsWith('- ')) {
-      if (!Array.isArray(parent)) {
-        continue;
-      }
-
-      const itemText = trimmed.slice(2);
-      if (itemText.includes(': ')) {
-        const [itemKey = '', ...rest] = itemText.split(': ');
-        const item: Record<string, unknown> = { [itemKey]: parseScalar(rest.join(': ')) };
-        parent.push(item);
-        stack.push({ indent, value: item });
-      } else if (itemText.endsWith(':')) {
-        const item: Record<string, unknown> = { [itemText.slice(0, -1)]: [] };
-        parent.push(item);
-        stack.push({ indent, value: item[itemText.slice(0, -1)] });
-      } else {
-        parent.push(parseScalar(itemText));
-      }
-
-      continue;
-    }
-
-    if (typeof parent !== 'object' || parent === null || Array.isArray(parent)) {
-      continue;
-    }
-
-    const parentRecord = parent as Record<string, unknown>;
-
-    if (trimmed.endsWith(':')) {
-      const key = trimmed.slice(0, -1);
-      parentRecord[key] = [];
-      stack.push({ indent, value: parentRecord[key] });
-      continue;
-    }
-
-    const [key = '', ...rest] = trimmed.split(': ');
-    if (key.length === 0) {
-      continue;
-    }
-
-    parentRecord[key] = parseScalar(rest.join(': '));
-  }
-
-  return root;
-};
-
-const parseDataFile = (filePath: string): unknown => {
-  const fileContent = readFileSync(filePath, 'utf8');
-  const extension = extname(filePath).toLowerCase();
-
-  if (extension === '.json') {
-    return JSON.parse(fileContent);
-  }
-
-  return parseSimpleYaml(fileContent);
-};
-
-const toEntityRecord = (data: unknown, sourceFilePath: string): EntityRecord => {
-  const value = typeof data === 'object' && data !== null ? (data as Record<string, unknown>) : {};
-  const relationsRaw = Array.isArray(value.relations) ? value.relations : [];
+const toEntityRecord = (value: unknown, sourceFilePath: string): EntityRecord => {
+  const record = isRecordLike(value) ? value : {};
 
   return {
-    id: typeof value.id === 'string' ? value.id : '',
-    type: typeof value.type === 'string' ? value.type : '',
-    title: typeof value.title === 'string' ? value.title : '',
-    ...(typeof value.summary === 'string' ? { summary: value.summary } : {}),
-    tags: Array.isArray(value.tags)
-      ? value.tags.filter((tag): tag is string => typeof tag === 'string')
-      : [],
-    relations: relationsRaw
-      .map((relation) => {
-        if (typeof relation !== 'object' || relation === null) {
-          return undefined;
-        }
-
-        const relationRecord = relation as Record<string, unknown>;
-        if (
-          typeof relationRecord.type !== 'string' ||
-          typeof relationRecord.targetId !== 'string'
-        ) {
-          return undefined;
-        }
-
-        return { type: relationRecord.type, targetId: relationRecord.targetId };
-      })
-      .filter((relation): relation is { type: string; targetId: string } => relation !== undefined),
+    kind: 'entity',
+    id: asString(record.id) ?? '',
+    type: asBuiltinEntityType(record.type),
+    title: asString(record.title) ?? '',
+    ...(asString(record.summary) === undefined ? {} : { summary: asString(record.summary) }),
+    tags: asStringArray(record.tags),
+    attributes: toAttributeRecord(record.attributes) as EntityRecord['attributes'],
     sourceFilePath
+  } as EntityRecord;
+};
+
+const toRelationEndpoint = (value: unknown) => {
+  const endpoint = isRecordLike(value) ? value : {};
+
+  return {
+    type: asBuiltinEntityType(endpoint.type),
+    id: asString(endpoint.id) ?? ''
   };
 };
 
-const toRelationRecord = (data: unknown, sourceFilePath: string): RelationRecord | undefined => {
-  if (typeof data !== 'object' || data === null) {
-    return undefined;
-  }
-
-  const value = data as RawRelationRecord;
-  const relationType =
-    typeof value.relationType === 'string'
-      ? value.relationType
-      : typeof value.type === 'string'
-        ? value.type
-        : undefined;
-
-  if (
-    typeof value.sourceType !== 'string' ||
-    typeof value.sourceId !== 'string' ||
-    typeof relationType !== 'string' ||
-    typeof value.targetId !== 'string'
-  ) {
-    return undefined;
-  }
-
-  return {
-    sourceType: value.sourceType,
-    sourceId: value.sourceId,
-    relationType,
-    targetId: value.targetId,
+const toRelationRecord = (value: unknown, sourceFilePath: string): RelationRecord => {
+  const record = isRecordLike(value) ? value : {};
+  const relation: RelationRecord = {
+    kind: 'relation',
+    id: asString(record.id) ?? '',
+    type: asString(record.type) ?? '',
+    source: toRelationEndpoint(record.source),
+    target: toRelationEndpoint(record.target),
     sourceFilePath
   };
+
+  const title = asString(record.title);
+  const summary = asString(record.summary);
+  if (title !== undefined) {
+    relation.title = title;
+  }
+  if (summary !== undefined) {
+    relation.summary = summary;
+  }
+
+  return relation;
 };
 
-const normalizeCollections = ({
-  entities,
-  relations = []
-}: RepositoryInput): Required<RepositoryInput> => {
-  const entityMap = new Map<string, EntityRecord>();
-  const relationMap = new Map<string, RelationRecord>();
-
-  for (const entity of entities) {
-    const entityKey = `${entity.type}::${entity.id}`;
-    const dedupedRelations = entity.relations.filter(
-      (candidate, index, allRelations) =>
-        allRelations.findIndex(
-          (entry) => entry.type === candidate.type && entry.targetId === candidate.targetId
-        ) === index
-    );
-
-    const normalizedEntity: EntityRecord = {
-      ...entity,
-      tags: [...new Set(entity.tags)],
-      relations: dedupedRelations
-    };
-
-    entityMap.set(entityKey, normalizedEntity);
-
-    for (const relation of dedupedRelations) {
-      relationMap.set(`${entity.type}::${entity.id}::${relation.type}::${relation.targetId}`, {
-        sourceType: entity.type,
-        sourceId: entity.id,
-        relationType: relation.type,
-        targetId: relation.targetId,
-        ...(entity.sourceFilePath === undefined ? {} : { sourceFilePath: entity.sourceFilePath })
-      });
-    }
+const toViewRecord = (value: unknown, sourceFilePath: string): ViewRecord => {
+  const record = isRecordLike(value) ? value : {};
+  const entityTypes = asStringArray(record.entityTypes).map((entry) => asBuiltinEntityType(entry));
+  const view: ViewRecord = {
+    kind: 'view',
+    id: asString(record.id) ?? '',
+    title: asString(record.title) ?? '',
+    entityTypes,
+    sourceFilePath
+  };
+  const summary = asString(record.summary);
+  const query = asString(record.query);
+  if (summary !== undefined) {
+    view.summary = summary;
+  }
+  if (query !== undefined) {
+    view.query = query;
   }
 
-  for (const relation of relations) {
-    relationMap.set(
-      `${relation.sourceType}::${relation.sourceId}::${relation.relationType}::${relation.targetId}`,
-      relation
-    );
+  return view;
+};
 
-    const entityKey = `${relation.sourceType}::${relation.sourceId}`;
-    const existing = entityMap.get(entityKey);
-    if (existing === undefined) {
-      continue;
-    }
+const toAllowedTargetTypes = (value: unknown): readonly BuiltinEntityTypeName[] =>
+  asStringArray(value).map((entry) => asBuiltinEntityType(entry));
 
-    entityMap.set(entityKey, {
-      ...existing,
-      relations: [
-        ...existing.relations,
-        { type: relation.relationType, targetId: relation.targetId }
-      ].filter(
-        (candidate, index, allRelations) =>
-          allRelations.findIndex(
-            (entry) => entry.type === candidate.type && entry.targetId === candidate.targetId
-          ) === index
-      )
-    });
+const toPolicyRecord = (value: unknown, sourceFilePath: string): PolicyRecord => {
+  const record = isRecordLike(value) ? value : {};
+  const rawRules = Array.isArray(record.rules) ? record.rules : [];
+  const policy: PolicyRecord = {
+    kind: 'policy',
+    id: asString(record.id) ?? '',
+    title: asString(record.title) ?? '',
+    rules: rawRules.flatMap((rule) => {
+      if (!isRecordLike(rule)) {
+        return [];
+      }
+
+      const normalizedCode = asString(rule.code);
+      const normalizedRule: PolicyRecord['rules'][number] = {
+        code:
+          normalizedCode === 'require-tag' ||
+          normalizedCode === 'require-attribute' ||
+          normalizedCode === 'allowed-relation'
+            ? normalizedCode
+            : 'require-tag'
+      };
+      const targetType = asString(rule.targetType);
+      const field = asString(rule.field);
+      const valueText = asString(rule.value);
+      const relationType = asString(rule.relationType);
+      const allowedTargetTypes = toAllowedTargetTypes(rule.allowedTargetTypes);
+      const message = asString(rule.message);
+
+      if (targetType !== undefined) {
+        normalizedRule.targetType = asBuiltinEntityType(targetType);
+      }
+      if (field !== undefined) {
+        normalizedRule.field = field;
+      }
+      if (valueText !== undefined) {
+        normalizedRule.value = valueText;
+      }
+      if (relationType !== undefined) {
+        normalizedRule.relationType = relationType;
+      }
+      if (allowedTargetTypes.length > 0) {
+        normalizedRule.allowedTargetTypes = allowedTargetTypes;
+      }
+      if (message !== undefined) {
+        normalizedRule.message = message;
+      }
+
+      return [normalizedRule];
+    }),
+    sourceFilePath
+  };
+  const summary = asString(record.summary);
+  if (summary !== undefined) {
+    policy.summary = summary;
   }
 
-  return {
-    entities: [...entityMap.values()].sort((left, right) =>
-      left.type === right.type
-        ? left.id.localeCompare(right.id)
-        : left.type.localeCompare(right.type)
-    ),
-    relations: [...relationMap.values()].sort((left, right) =>
-      left.sourceType === right.sourceType
-        ? left.sourceId === right.sourceId
-          ? left.relationType === right.relationType
-            ? left.targetId.localeCompare(right.targetId)
-            : left.relationType.localeCompare(right.relationType)
-          : left.sourceId.localeCompare(right.sourceId)
-        : left.sourceType.localeCompare(right.sourceType)
+  return policy;
+};
+
+const createDiagnostics = (graph: RegistryGraph): RegistryDiagnostics => ({
+  implementationOrder: IMPLEMENTATION_ORDER,
+  readOnly: true,
+  schemaVersion: 1,
+  counts: {
+    entities: graph.entities.length,
+    relations: graph.relations.length,
+    views: graph.views.length,
+    policies: graph.policies.length
+  },
+  sourceFilePaths: [
+    ...new Set(
+      [...graph.entities, ...graph.relations, ...graph.views, ...graph.policies]
+        .map((record) => record.sourceFilePath)
+        .sort((left, right) => left.localeCompare(right))
     )
-  };
-};
+  ]
+});
+
+const sortGraph = (graph: RegistryGraph): RegistryGraph => ({
+  ...graph,
+  entities: [...graph.entities].sort((left, right) =>
+    left.type === right.type ? left.id.localeCompare(right.id) : left.type.localeCompare(right.type)
+  ),
+  relations: [...graph.relations].sort((left, right) => left.id.localeCompare(right.id)),
+  views: [...graph.views].sort((left, right) => left.id.localeCompare(right.id)),
+  policies: [...graph.policies].sort((left, right) => left.id.localeCompare(right.id))
+});
+
+export const createRegistryGraph = (
+  graph: Omit<RegistryGraph, 'kind' | 'schemaVersion'>
+): RegistryGraph =>
+  sortGraph({
+    kind: 'registry-graph',
+    schemaVersion: 1,
+    entities: graph.entities,
+    relations: graph.relations,
+    views: graph.views,
+    policies: graph.policies
+  });
 
 export const loadRegistryFromFs = (registryRoot: string) => {
-  const absoluteRegistryRoot = resolveRegistryDirectory(registryRoot);
-  const repositoryRoot = findRepositoryRoot(absoluteRegistryRoot);
+  const absoluteRegistryRoot = resolve(registryRoot);
+  ensureCanonicalLayout(absoluteRegistryRoot);
+  const repositoryRoot = resolveRepositoryRoot(absoluteRegistryRoot);
 
-  const entities = findDataFiles(join(absoluteRegistryRoot, 'entities')).map((filePath) =>
-    toEntityRecord(parseDataFile(filePath), normalizePath(relative(repositoryRoot, filePath)))
-  );
-  const relations = findDataFiles(join(absoluteRegistryRoot, 'relations'))
-    .map((filePath) =>
-      toRelationRecord(parseDataFile(filePath), normalizePath(relative(repositoryRoot, filePath)))
-    )
-    .filter((relation): relation is RelationRecord => relation !== undefined);
+  const toSourceFilePath = (filePath: string) => normalizePath(relative(repositoryRoot, filePath));
+  const graph = createRegistryGraph({
+    entities: listStructuredFiles(
+      join(absoluteRegistryRoot, REGISTRY_LAYOUT.entitiesDirectory)
+    ).map((filePath) => toEntityRecord(readStructuredFile(filePath), toSourceFilePath(filePath))),
+    relations: listStructuredFiles(
+      join(absoluteRegistryRoot, REGISTRY_LAYOUT.relationsDirectory)
+    ).map((filePath) => toRelationRecord(readStructuredFile(filePath), toSourceFilePath(filePath))),
+    views: listStructuredFiles(join(absoluteRegistryRoot, REGISTRY_LAYOUT.viewsDirectory)).map(
+      (filePath) => toViewRecord(readStructuredFile(filePath), toSourceFilePath(filePath))
+    ),
+    policies: listStructuredFiles(
+      join(absoluteRegistryRoot, REGISTRY_LAYOUT.policiesDirectory)
+    ).map((filePath) => toPolicyRecord(readStructuredFile(filePath), toSourceFilePath(filePath)))
+  });
 
-  return createReadOnlyRepository(normalizeCollections({ entities, relations }));
+  return createReadOnlyRepository(graph);
 };
 
-export const createReadOnlyRepository = ({ entities, relations }: RepositoryInput) => {
-  const normalizedRelations =
-    relations ??
-    entities.flatMap((entity) =>
-      entity.relations.map((relation) => ({
-        sourceType: entity.type,
-        sourceId: entity.id,
-        relationType: relation.type,
-        targetId: relation.targetId,
-        ...(entity.sourceFilePath === undefined ? {} : { sourceFilePath: entity.sourceFilePath })
-      }))
-    );
-
-  const frozenEntities = entities.map((entity) =>
-    Object.freeze({
-      ...entity,
-      relations: Object.freeze(entity.relations.map((relation) => Object.freeze({ ...relation }))),
-      tags: Object.freeze([...entity.tags])
-    })
-  );
-  const frozenRelations = normalizedRelations.map((relation) => Object.freeze({ ...relation }));
+export const createReadOnlyRepository = (graph: RegistryGraph) => {
+  const diagnostics = createDiagnostics(graph);
+  const frozenGraph = Object.freeze({
+    ...graph,
+    entities: Object.freeze([...graph.entities]),
+    relations: Object.freeze([...graph.relations]),
+    views: Object.freeze([...graph.views]),
+    policies: Object.freeze([...graph.policies])
+  });
 
   return Object.freeze({
-    listTypes: (): readonly string[] =>
-      [...new Set(frozenEntities.map((entry) => entry.type))].sort((a, b) => a.localeCompare(b)),
-    listEntities: (): readonly EntityRecord[] => frozenEntities,
-    findEntity: (type: string, id: string): EntityRecord | undefined =>
-      frozenEntities.find((entry) => entry.type === type && entry.id === id),
-    listRelations: () => frozenRelations,
-    diagnostics: (): Diagnostics => ({
-      implementationOrder: IMPLEMENTATION_ORDER,
-      readOnly: true,
-      entityCount: frozenEntities.length,
-      sourceFilePaths: [
-        ...new Set(
-          [...frozenEntities, ...frozenRelations]
-            .map((entry) => entry.sourceFilePath)
-            .filter((path): path is string => typeof path === 'string')
-        )
-      ]
-    })
+    graph: (): RegistryGraph => frozenGraph,
+    listTypes: (): readonly BuiltinEntityTypeName[] =>
+      [...new Set(frozenGraph.entities.map((entity) => entity.type))].sort((left, right) =>
+        left.localeCompare(right)
+      ) as readonly BuiltinEntityTypeName[],
+    listEntities: (): readonly EntityRecord[] => frozenGraph.entities,
+    findEntity: (type: BuiltinEntityTypeName, id: string): EntityRecord | undefined =>
+      frozenGraph.entities.find((entity) => entity.type === type && entity.id === id),
+    listRelations: (): readonly RelationRecord[] => frozenGraph.relations,
+    listViews: (): readonly ViewRecord[] => frozenGraph.views,
+    listPolicies: (): readonly PolicyRecord[] => frozenGraph.policies,
+    diagnostics: (): RegistryDiagnostics => diagnostics
   });
 };
 

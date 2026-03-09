@@ -1,8 +1,0 @@
-id: vlan-100
-type: vlan
-title: VLAN 100
-tags:
-  - l2
-relations:
-  - type: provides
-    targetId: prefix-10-0-0-0-24

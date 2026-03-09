@@ -1,11 +1,22 @@
-import type { LedraBundle } from '@ledra/types';
-import { createReadOnlyRepository, type ReadOnlyRepository } from '@ledra/core';
+import type { ReadOnlyRepository } from '@ledra/core';
+import type { LedraBundle, RegistryGraph, RegistryDiagnostics } from '@ledra/types';
 
 export const packageName = '@ledra/bundle';
 
-export const buildBundle = (repository: ReadOnlyRepository = createReadOnlyRepository({ entities: [] })): LedraBundle => ({
-  kind: 'static-bundle',
-  generatedAt: new Date().toISOString(),
-  types: repository.listTypes(),
-  entities: repository.listEntities()
-});
+type BundleSource = ReadOnlyRepository | { graph: RegistryGraph; diagnostics: RegistryDiagnostics };
+
+const isRepository = (value: BundleSource): value is ReadOnlyRepository =>
+  typeof value === 'object' && value !== null && 'listEntities' in value;
+
+export const buildBundle = (source: BundleSource): LedraBundle => {
+  const graph = isRepository(source) ? source.graph() : source.graph;
+  const diagnostics = isRepository(source) ? source.diagnostics() : source.diagnostics;
+
+  return {
+    kind: 'static-bundle',
+    schemaVersion: 1,
+    generatedAt: new Date().toISOString(),
+    graph,
+    diagnostics
+  };
+};

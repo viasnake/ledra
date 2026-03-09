@@ -1,8 +1,0 @@
-id: allocation-app-01
-type: allocation
-title: app-01 allocation
-tags:
-  - ipam
-relations:
-  - type: assigned_to
-    targetId: host-app-01

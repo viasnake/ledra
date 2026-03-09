@@ -2,8 +2,13 @@
   "id": "prefix-10-0-0-0-24",
   "type": "prefix",
   "title": "10.0.0.0/24",
+  "summary": "Sample application subnet.",
   "tags": ["ipv4"],
-  "relations": [
-    { "type": "allocates", "targetId": "allocation-app-01" }
-  ]
+  "attributes": {
+    "cidr": "10.0.0.0/24",
+    "family": "ipv4",
+    "siteId": "site-tokyo",
+    "vlanId": "vlan-100",
+    "gateway": "10.0.0.1"
+  }
 }

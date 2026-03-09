@@ -1,0 +1,8 @@
+id: view-ipam-overview
+title: IPAM Overview
+summary: Focus on prefixes, allocations, and DNS records.
+entityTypes:
+  - prefix
+  - allocation
+  - dns_record
+query: type=prefix

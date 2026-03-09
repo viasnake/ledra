@@ -2,8 +2,13 @@
   "id": "host-app-01",
   "type": "host",
   "title": "app-01",
+  "summary": "Linux application host.",
   "tags": ["linux"],
-  "relations": [
-    { "type": "runs", "targetId": "service-web" }
-  ]
+  "attributes": {
+    "hostname": "app-01",
+    "fqdn": "app.example.test",
+    "primaryAddress": "10.0.0.10",
+    "siteId": "site-tokyo",
+    "os": "linux"
+  }
 }

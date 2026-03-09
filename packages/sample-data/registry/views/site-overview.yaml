@@ -1,0 +1,10 @@
+id: view-site-overview
+title: Site Overview
+summary: Browse the primary site and the inventory attached to it.
+entityTypes:
+  - site
+  - segment
+  - vlan
+  - prefix
+  - host
+query: siteId=site-tokyo

@@ -1,0 +1,15 @@
+id: policy-core-registry
+title: Core Registry Policy
+summary: Keep key sample records tagged and referenced.
+rules:
+  - code: require-tag
+    targetType: site
+    value: production
+  - code: require-attribute
+    targetType: host
+    field: fqdn
+  - code: allowed-relation
+    targetType: service
+    relationType: resolves_to
+    allowedTargetTypes:
+      - dns_record

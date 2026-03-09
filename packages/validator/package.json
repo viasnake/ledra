@@ -12,6 +12,8 @@
   },
   "exports": "./src/index.ts",
   "dependencies": {
+    "@ledra/core": "0.1.0",
+    "@ledra/schemas": "0.1.0",
     "@ledra/types": "0.1.0"
   }
 }
