@@ -3,14 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "dist/index.js",
-  "types": "src/index.ts",
+  "main": "dist/apps/api/src/index.js",
+  "types": "dist/apps/api/src/index.d.ts",
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint src --ext .ts,.tsx"
   },
-  "exports": "./src/index.ts",
+  "exports": "./dist/apps/api/src/index.js",
   "dependencies": {
     "@ledra/bundle": "0.1.0",
     "@ledra/core": "0.1.0",
