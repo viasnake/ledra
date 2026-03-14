@@ -21,13 +21,10 @@ const usage = [
   '  --bundle <path>         Exported bundle.json path',
   '',
   'Optional metadata flags:',
-  '  --data-repo <slug>      Data repository slug or URL',
-  '  --data-ref <ref>        Data repository ref',
-  '  --data-commit <sha>     Data repository commit SHA',
-  '  --registry-path <path>  Registry directory inside the data repo',
-  '  --engine-repo <slug>    Engine repository slug or URL',
-  '  --engine-ref <ref>      Engine release tag or ref',
-  '  --engine-commit <sha>   Engine repository commit SHA',
+  '  --repo <slug>           Repository slug or URL',
+  '  --ref <ref>             Repository ref used for packaging',
+  '  --commit <sha>          Repository commit SHA',
+  '  --registry-path <path>  Registry directory inside the repository',
   '  --generated-at <iso>    ISO-8601 timestamp override',
   '  --deployment-version <value>  Deployment version override'
 ].join('\n');
@@ -66,44 +63,26 @@ const parseArgs = (argv) => {
       continue;
     }
 
-    if (token === '--data-repo' && value) {
-      parsed.dataRepo = value;
+    if (token === '--repo' && value) {
+      parsed.repo = value;
       index += 1;
       continue;
     }
 
-    if (token === '--data-ref' && value) {
-      parsed.dataRef = value;
+    if (token === '--ref' && value) {
+      parsed.ref = value;
       index += 1;
       continue;
     }
 
-    if (token === '--data-commit' && value) {
-      parsed.dataCommitSha = value;
+    if (token === '--commit' && value) {
+      parsed.commitSha = value;
       index += 1;
       continue;
     }
 
     if (token === '--registry-path' && value) {
       parsed.registryPath = value;
-      index += 1;
-      continue;
-    }
-
-    if (token === '--engine-repo' && value) {
-      parsed.engineRepo = value;
-      index += 1;
-      continue;
-    }
-
-    if (token === '--engine-ref' && value) {
-      parsed.engineRef = value;
-      index += 1;
-      continue;
-    }
-
-    if (token === '--engine-commit' && value) {
-      parsed.engineCommitSha = value;
       index += 1;
       continue;
     }
@@ -131,18 +110,13 @@ const toShortSha = (value) => {
   return value.slice(0, 12);
 };
 
-const createDeploymentVersion = ({
-  deploymentVersion,
-  generatedAt,
-  dataCommitSha,
-  engineCommitSha
-}) => {
+const createDeploymentVersion = ({ deploymentVersion, generatedAt, commitSha }) => {
   if (deploymentVersion) {
     return deploymentVersion;
   }
 
   const compactTimestamp = generatedAt.replace(/[-:]/g, '').replace(/\.\d{3}Z$/u, 'Z');
-  return `${toShortSha(dataCommitSha)}-${toShortSha(engineCommitSha)}-${compactTimestamp}`;
+  return `${toShortSha(commitSha)}-${compactTimestamp}`;
 };
 
 const ensureFile = (filePath, label) => {
@@ -178,25 +152,18 @@ export const buildCloudflareMetadata = ({
   generatedAt,
   deploymentVersion,
   registryPath,
-  dataRepo,
-  dataRef,
-  dataCommitSha,
-  engineRepo,
-  engineRef,
-  engineCommitSha
+  repo,
+  ref,
+  commitSha
 }) => ({
   product: 'Ledra',
+  metadataSchemaVersion: 2,
   deploymentVersion,
   generatedAt,
-  engine: {
-    repo: engineRepo ?? 'unknown',
-    ref: engineRef ?? 'unknown',
-    commitSha: engineCommitSha ?? 'unknown'
-  },
-  data: {
-    repo: dataRepo ?? 'unknown',
-    ref: dataRef ?? 'unknown',
-    commitSha: dataCommitSha ?? 'unknown',
+  repository: {
+    repo: repo ?? 'unknown',
+    ref: ref ?? 'unknown',
+    commitSha: commitSha ?? 'unknown',
     registryPath
   },
   bundle: {
@@ -210,12 +177,9 @@ export const createCloudflarePackage = ({
   bundlePath,
   outDir = DEFAULT_OUT_DIR,
   registryPath = DEFAULT_REGISTRY_PATH,
-  dataRepo,
-  dataRef,
-  dataCommitSha,
-  engineRepo,
-  engineRef,
-  engineCommitSha,
+  repo,
+  ref,
+  commitSha,
   generatedAt,
   deploymentVersion
 }) => {
@@ -232,20 +196,16 @@ export const createCloudflarePackage = ({
   const version = createDeploymentVersion({
     deploymentVersion,
     generatedAt: timestamp,
-    dataCommitSha,
-    engineCommitSha
+    commitSha
   });
   const metadata = buildCloudflareMetadata({
     bundle,
     generatedAt: timestamp,
     deploymentVersion: version,
     registryPath,
-    dataRepo,
-    dataRef,
-    dataCommitSha,
-    engineRepo,
-    engineRef,
-    engineCommitSha
+    repo,
+    ref,
+    commitSha
   });
   const resolvedOutDir = resolve(outDir);
 

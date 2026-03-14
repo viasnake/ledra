@@ -3,11 +3,8 @@ name: ledra-rollback
 on:
   workflow_dispatch:
     inputs:
-      data_commit:
-        description: Data repository commit SHA to redeploy
-        required: true
-      engine_ref:
-        description: Ledra engine release tag to use
+      deploy_ref:
+        description: Repository ref or commit SHA to redeploy
         required: true
       target_environment:
         description: Deployment target
@@ -15,30 +12,20 @@ on:
         type: choice
         options:
           - production
-          - preview
 
 permissions:
   contents: read
-
 env:
-  LEDRA_ENGINE_REPO: viasnake/ledra
   LEDRA_REGISTRY_PATH: registry
 
 jobs:
   build-rollback:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout data repository at target commit
+      - name: Checkout repository at target ref
         uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.data_commit }}
-
-      - name: Checkout Ledra engine
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.LEDRA_ENGINE_REPO }}
-          ref: ${{ inputs.engine_ref }}
-          path: engine
+          ref: ${{ inputs.deploy_ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -47,81 +34,70 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        working-directory: engine
 
-      - name: Build engine
+      - name: Build repository
         run: npm run build
-        working-directory: engine
 
       - name: Run tests
         run: npm test
-        working-directory: engine
 
       - name: Validate rollback registry data
         run: npm exec --workspace @ledra/cli ledra -- validate --registry "${{ github.workspace }}/${{ env.LEDRA_REGISTRY_PATH }}"
-        working-directory: engine
 
       - name: Export rollback bundle
         run: npm exec --workspace @ledra/cli ledra -- export --registry "${{ github.workspace }}/${{ env.LEDRA_REGISTRY_PATH }}" --out ".artifacts/cloudflare/bundle.json"
-        working-directory: engine
 
-      - name: Resolve engine commit SHA
-        id: engine-sha
+      - name: Resolve rollback commit SHA
+        id: rollback-sha
         run: printf 'sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-        working-directory: engine
 
       - name: Package Cloudflare assets
         run: >-
           node scripts/package-cloudflare.mjs
           --bundle .artifacts/cloudflare/bundle.json
           --out deploy/cloudflare/public
-          --data-repo "${{ github.repository }}"
-          --data-ref "${{ inputs.data_commit }}"
-          --data-commit "${{ inputs.data_commit }}"
+          --repo "${{ github.repository }}"
+          --ref "${{ inputs.deploy_ref }}"
+          --commit "${{ steps.rollback-sha.outputs.sha }}"
           --registry-path "${{ env.LEDRA_REGISTRY_PATH }}"
-          --engine-repo "${{ env.LEDRA_ENGINE_REPO }}"
-          --engine-ref "${{ inputs.engine_ref }}"
-          --engine-commit "${{ steps.engine-sha.outputs.sha }}"
-        working-directory: engine
 
       - name: Upload packaged assets
         uses: actions/upload-artifact@v4
         with:
           name: ledra-rollback-package
-          path: engine/deploy/cloudflare/public
+          path: deploy/cloudflare/public
 
   deploy-rollback:
     needs: build-rollback
     runs-on: ubuntu-latest
     environment: ${{ inputs.target_environment }}
     steps:
-      - name: Checkout Ledra engine
+      - name: Checkout trusted repository config
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.LEDRA_ENGINE_REPO }}
-          ref: ${{ inputs.engine_ref }}
-          path: engine
+          ref: refs/heads/${{ github.event.repository.default_branch }}
 
       - name: Download packaged assets
         uses: actions/download-artifact@v4
         with:
           name: ledra-rollback-package
-          path: engine/deploy/cloudflare/public
+          path: deploy/cloudflare/public
 
       - name: Copy Wrangler config
         run: cp deploy/cloudflare/wrangler.toml.example deploy/cloudflare/wrangler.toml
-        working-directory: engine
 
       - name: Deploy rollback build
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: engine/deploy/cloudflare
+          workingDirectory: deploy/cloudflare
           command: deploy --env ${{ inputs.target_environment }}
 
       - name: Verify rollback deployment
         if: ${{ inputs.target_environment == 'production' }}
         run: |
           curl --fail --silent --show-error "https://${{ vars.CLOUDFLARE_PRODUCTION_HOSTNAME }}/health"
+          curl --fail --silent --show-error "https://${{ vars.CLOUDFLARE_PRODUCTION_HOSTNAME }}/bundle.json" >/dev/null
+          curl --fail --silent --show-error "https://${{ vars.CLOUDFLARE_PRODUCTION_HOSTNAME }}/api/views" >/dev/null
           curl --fail --silent --show-error "https://${{ vars.CLOUDFLARE_PRODUCTION_HOSTNAME }}/api/metadata" >/dev/null

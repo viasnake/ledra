@@ -1,37 +1,31 @@
-# 2-repo Cloudflare deployment
+# Cloudflare deployment
 
 This guide describes the recommended production setup for Ledra on Cloudflare.
 
-## Repositories
+## Repository model
 
-### Engine repository
+Use a single deployment repository, typically a fork of the original Ledra repository.
 
-The Ledra engine repository contains:
+That repository contains:
 
 - Ledra packages and apps
+- `registry/` as the source-of-truth data tree
 - the Cloudflare Worker and Wrangler template
 - the Cloudflare packaging script
-- workflow templates for a separate data repository
-
-### Data repository
-
-The data repository is the single source of truth and contains:
-
-- `registry/`
 - GitHub Actions workflows for preview, production, and rollback
 
-The data repository must not copy Ledra runtime code.
+The deployment repository is the source of truth for both code and data. Upstream Ledra is an upgrade
+source, not a deployment input.
 
 ## Deployment contract
 
-The data repository workflows pin a Ledra release tag and then:
+Each workflow packages and deploys a single repository ref:
 
-1. check out the data repository
-2. check out the Ledra engine repository at a release tag
-3. run `validate`
-4. run `export`
-5. package viewer assets, `bundle.json`, and `metadata.json`
-6. deploy the packaged artifact to Cloudflare Workers + Assets
+1. check out the repository ref to deploy
+2. run `validate`
+3. run `export`
+4. package viewer assets, `bundle.json`, and `metadata.json`
+5. deploy the packaged artifact to Cloudflare Workers + Assets
 
 Cloudflare reads only packaged assets. It does not fetch registry data from GitHub at runtime.
 
@@ -50,22 +44,22 @@ public/
 
 ## GitHub Actions model
 
-Store workflows in the data repository.
+Store workflows in the deployment repository.
 
 - `preview.yml`: PR validation, packaging, preview deploy, preview teardown on PR close
 - `production.yml`: deploy on `main`
-- `rollback.yml`: redeploy a specific data commit and engine release tag
+- `rollback.yml`: redeploy a specific repository ref or commit
 
 Reference templates:
 
-- `deploy/cloudflare/data-repo-workflows/preview.yml.example`
-- `deploy/cloudflare/data-repo-workflows/production.yml.example`
-- `deploy/cloudflare/data-repo-workflows/rollback.yml.example`
+- `deploy/cloudflare/workflows/preview.yml.example`
+- `deploy/cloudflare/workflows/production.yml.example`
+- `deploy/cloudflare/workflows/rollback.yml.example`
 - `deploy/cloudflare/metadata-schema.md`
 
 ## Required secrets and variables
 
-Configure these in the data repository.
+Configure these in the deployment repository.
 
 ### Secrets
 
@@ -76,9 +70,8 @@ Configure these in the data repository.
 
 - `CLOUDFLARE_PRODUCTION_HOSTNAME`
 - `CLOUDFLARE_ACCOUNT_SUBDOMAIN`
-- `LEDRA_ENGINE_REPO`
-- `LEDRA_ENGINE_REF`
-- `LEDRA_REGISTRY_PATH`
+
+The workflow templates assume `registry/` at the repository root.
 
 ## Environment model
 
@@ -88,6 +81,8 @@ Configure these in the data repository.
 - `workers.dev` only
 - destroyed when the PR closes
 - must not share production routes or production-only secrets
+- deploy only for trusted same-repository PRs
+- secret-bearing deploy jobs should read trusted workflow config, not PR-modified deployment code
 
 ### Production
 
@@ -97,29 +92,28 @@ Configure these in the data repository.
 
 ## Packaging command
 
-The Ledra engine repository provides a packaging script:
+The deployment repository provides a packaging script:
 
 ```bash
 node scripts/package-cloudflare.mjs \
   --bundle .artifacts/cloudflare/bundle.json \
   --out deploy/cloudflare/public \
-  --data-repo "example/home-ledra-data" \
-  --data-ref "refs/heads/main" \
-  --data-commit "<data_sha>" \
-  --registry-path "registry" \
-  --engine-repo "viasnake/ledra" \
-  --engine-ref "v0.1.0" \
-  --engine-commit "<engine_sha>"
+  --repo "example/home-ledra" \
+  --ref "refs/heads/main" \
+  --commit "<repo_sha>" \
+  --registry-path "registry"
 ```
 
 ## Rollback policy
 
 Primary rollback is a GitHub-driven rebuild and redeploy.
 
-1. choose a known-good data commit
-2. choose the Ledra release tag to pair with it
-3. run `rollback.yml`, which validates data before repackaging
-4. verify `/health`, `/bundle.json`, `/api/views`, and `/api/metadata`
+1. choose a known-good repository ref or commit
+2. run `rollback.yml`, which validates data before repackaging
+3. verify `/health`, `/bundle.json`, `/api/views`, and `/api/metadata`
+
+The example rollback workflow targets production only. Preview environments are per-PR Workers and should be
+recreated from the corresponding PR branch instead of rolled back through a shared workflow.
 
 Cloudflare native rollback is only a secondary tool. The audited path is to rebuild and redeploy from
 GitHub.
@@ -135,7 +129,19 @@ The following initial setup is intentionally manual:
 
 After bootstrap, routine preview, production, and rollback actions should run from GitHub.
 
+## Upstream update model
+
+If the deployment repository is a fork, treat the original Ledra repository as upstream.
+
+1. create an upgrade branch in the fork
+2. merge or rebase upstream changes
+3. run validation, tests, and preview deploy in the fork
+4. merge into `main` only after the packaged artifact verifies correctly
+
 ## Secret-handling note
 
 The workflow templates split build/package jobs from deploy jobs. Cloudflare secrets are only required by the
 deploy jobs so validation, test, and packaging steps can run without deployment credentials.
+
+Use minimally scoped Cloudflare API tokens. If preview and production trust boundaries differ, keep separate
+tokens for each environment.

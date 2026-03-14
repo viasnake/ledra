@@ -1,9 +1,9 @@
 # Cloudflare deployment example (Workers + Assets)
 
-This directory now targets a 2-repository deployment model.
+This directory targets the recommended single-repository Cloudflare deployment model.
 
-- Engine repo: Ledra runtime, Worker, packaging script, and documentation.
-- Data repo: source-of-truth `registry/` plus GitHub Actions workflows.
+Use one deployment repository, usually a fork of Ledra, that keeps runtime code, `registry/`, and GitHub
+Actions workflows together.
 
 The Cloudflare runtime serves only packaged assets and read-only API responses.
 
@@ -18,7 +18,7 @@ The Cloudflare runtime serves only packaged assets and read-only API responses.
 
 ## Local packaging smoke test
 
-Use this flow when validating the Cloudflare package locally inside the engine repo.
+Use this flow when validating the Cloudflare package locally inside the deployment repository.
 
 ### 1) Build Ledra
 
@@ -42,13 +42,10 @@ npm exec --workspace @ledra/cli ledra -- export --registry ./.local/registry-dat
 node scripts/package-cloudflare.mjs \
   --bundle .artifacts/cloudflare/bundle.json \
   --out deploy/cloudflare/public \
-  --data-repo "local/example-data" \
-  --data-ref "refs/heads/main" \
-  --data-commit "$(git rev-parse HEAD)" \
-  --registry-path "registry" \
-  --engine-repo "viasnake/ledra" \
-  --engine-ref "local-dev" \
-  --engine-commit "$(git rev-parse HEAD)"
+  --repo "local/example-ledra" \
+  --ref "refs/heads/main" \
+  --commit "$(git rev-parse HEAD)" \
+  --registry-path "registry"
 ```
 
 ### 4) Deploy manually for a smoke test
@@ -59,15 +56,21 @@ cd deploy/cloudflare
 npx wrangler deploy --env preview
 ```
 
+Use a scoped API token for this smoke test rather than a broad interactive login.
+
 ## Recommended production model
 
-Production should be driven from a separate data repository.
+Production should be driven from the deployment repository itself.
 
-1. A data repo PR runs validation, tests, packaging, and preview deploy.
+1. A trusted repository PR runs validation, tests, packaging, and preview deploy.
 2. A merge to `main` runs production deploy.
-3. Rollback rebuilds from a specific data commit and Ledra release tag.
+3. Rollback rebuilds from a specific repository ref or commit.
 
-Template workflows live under `deploy/cloudflare/data-repo-workflows/`.
+Template workflows live under `deploy/cloudflare/workflows/`.
+
+Preview deploys are intentionally limited to trusted same-repository PRs. Secret-bearing deploy jobs should
+use trusted workflow configuration rather than PR-modified deployment code.
+Rollback is production-oriented; preview Workers should be recreated from the relevant PR branch.
 
 See `deploy/cloudflare/metadata-schema.md` for the public deployment metadata contract.
 
@@ -76,7 +79,9 @@ See `deploy/cloudflare/metadata-schema.md` for the public deployment metadata co
 - `assets.binding = "ASSETS"` is required because `worker.mjs` reads packaged assets directly.
 - `metadata.json` must be packaged next to `bundle.json`.
 - Production should use a custom domain via `env.production.routes`.
-- Preview URL comments require a `CLOUDFLARE_ACCOUNT_SUBDOMAIN` variable in the data repository.
+- Preview URL comments require a `CLOUDFLARE_ACCOUNT_SUBDOMAIN` variable in the deployment repository.
+- Workflow templates assume `registry/` at the repository root.
+- Use minimally scoped Cloudflare API tokens, and split preview/production tokens if the trust boundary differs.
 
 ## Preview and production policy
 

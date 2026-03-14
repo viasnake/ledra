@@ -9,23 +9,14 @@ permissions:
   contents: read
 
 env:
-  LEDRA_ENGINE_REPO: viasnake/ledra
-  LEDRA_ENGINE_REF: v0.1.0
   LEDRA_REGISTRY_PATH: registry
 
 jobs:
   build-production:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout data repository
+      - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Checkout Ledra engine
-        uses: actions/checkout@v4
-        with:
-          repository: ${{ env.LEDRA_ENGINE_REPO }}
-          ref: ${{ env.LEDRA_ENGINE_REF }}
-          path: engine
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,77 +25,58 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        working-directory: engine
 
-      - name: Build engine
+      - name: Build repository
         run: npm run build
-        working-directory: engine
 
       - name: Run tests
         run: npm test
-        working-directory: engine
 
       - name: Validate registry data
         run: npm exec --workspace @ledra/cli ledra -- validate --registry "${{ github.workspace }}/${{ env.LEDRA_REGISTRY_PATH }}"
-        working-directory: engine
 
       - name: Export bundle
         run: npm exec --workspace @ledra/cli ledra -- export --registry "${{ github.workspace }}/${{ env.LEDRA_REGISTRY_PATH }}" --out ".artifacts/cloudflare/bundle.json"
-        working-directory: engine
-
-      - name: Resolve engine commit SHA
-        id: engine-sha
-        run: printf 'sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-        working-directory: engine
 
       - name: Package Cloudflare assets
         run: >-
           node scripts/package-cloudflare.mjs
           --bundle .artifacts/cloudflare/bundle.json
           --out deploy/cloudflare/public
-          --data-repo "${{ github.repository }}"
-          --data-ref "refs/heads/main"
-          --data-commit "${{ github.sha }}"
+          --repo "${{ github.repository }}"
+          --ref "${{ github.ref }}"
+          --commit "${{ github.sha }}"
           --registry-path "${{ env.LEDRA_REGISTRY_PATH }}"
-          --engine-repo "${{ env.LEDRA_ENGINE_REPO }}"
-          --engine-ref "${{ env.LEDRA_ENGINE_REF }}"
-          --engine-commit "${{ steps.engine-sha.outputs.sha }}"
-        working-directory: engine
 
       - name: Upload packaged assets
         uses: actions/upload-artifact@v4
         with:
           name: ledra-production-package
-          path: engine/deploy/cloudflare/public
+          path: deploy/cloudflare/public
 
   deploy-production:
     needs: build-production
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Checkout Ledra engine
+      - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          repository: ${{ env.LEDRA_ENGINE_REPO }}
-          ref: ${{ env.LEDRA_ENGINE_REF }}
-          path: engine
 
       - name: Download packaged assets
         uses: actions/download-artifact@v4
         with:
           name: ledra-production-package
-          path: engine/deploy/cloudflare/public
+          path: deploy/cloudflare/public
 
       - name: Copy production Wrangler config
         run: cp deploy/cloudflare/wrangler.toml.example deploy/cloudflare/wrangler.toml
-        working-directory: engine
 
       - name: Deploy production to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: engine/deploy/cloudflare
+          workingDirectory: deploy/cloudflare
           command: deploy --env production
 
       - name: Verify production health

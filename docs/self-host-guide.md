@@ -61,10 +61,9 @@ curl http://127.0.0.1:3000/api/views
 ## Cloudflare production note
 
 For Cloudflare production, the recommended model is no longer a local `wrangler deploy` from this
-repository. Use a separate data repository as the source of truth and run deployment from GitHub Actions.
+repository. Use a deployment repository, usually a fork of Ledra, and run deployment from GitHub Actions.
 
-- Engine repo: Ledra runtime, Worker, viewer, packaging script, and workflow templates.
-- Data repo: `registry/` plus preview, production, and rollback workflows.
+- Deployment repo: Ledra runtime, Worker, viewer, packaging script, `registry/`, and workflow templates.
 - Runtime contract: Cloudflare serves packaged assets only. It never reads GitHub live.
 
-Use `docs/2-repo-cloudflare-deployment.md` and `deploy/cloudflare/README.md` when setting up that model.
+Use `docs/cloudflare-deployment.md` and `deploy/cloudflare/README.md` when setting up that model.

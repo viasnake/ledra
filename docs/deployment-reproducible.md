@@ -4,7 +4,7 @@ This document ties the runnable examples under `deploy/` to the Git-native regis
 
 ## Shared principle
 
-Use a registry data repository as source-of-truth input, then regenerate artifacts and redeploy:
+Use a Git-tracked `registry/` tree as source-of-truth input, then regenerate artifacts and redeploy:
 
 ```bash
 npm exec --workspace @ledra/cli ledra -- validate --registry <registry_repo_path>
@@ -29,14 +29,15 @@ docker compose -f deploy/docker/compose.yaml up --build -d
   - `deploy/cloudflare/wrangler.toml.example`
   - `deploy/cloudflare/worker.mjs`
 - Uses a packaged artifact directory containing viewer assets, `bundle.json`, and `metadata.json`.
-- Recommended production flow is a 2-repository model: the Ledra engine repo provides runtime code and
-  templates, while a separate data repo runs GitHub Actions and deploys to Cloudflare.
+- Recommended production flow is a single deployment repository model: a Ledra repository or fork keeps
+  runtime code, `registry/`, and GitHub Actions workflows together and deploys to Cloudflare from one ref.
+- Use `ledra export` for the Cloudflare bundle so the packaged artifact matches the static deployment flow.
 
 ```bash
 npm exec --workspace @ledra/cli ledra -- export --registry <registry_repo_path> --out .artifacts/cloudflare/bundle.json
-node scripts/package-cloudflare.mjs --bundle .artifacts/cloudflare/bundle.json --out deploy/cloudflare/public
+node scripts/package-cloudflare.mjs --bundle .artifacts/cloudflare/bundle.json --out deploy/cloudflare/public --repo <repo_slug> --ref <git_ref> --commit <git_sha>
 cd deploy/cloudflare && npx wrangler deploy
 ```
 
-See `docs/2-repo-cloudflare-deployment.md` for the full GitHub-driven preview, production, and rollback
+See `docs/cloudflare-deployment.md` for the full GitHub-driven preview, production, and rollback
 workflow.

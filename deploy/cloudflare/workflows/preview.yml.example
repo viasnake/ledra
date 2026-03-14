@@ -9,8 +9,6 @@ permissions:
   pull-requests: write
 
 env:
-  LEDRA_ENGINE_REPO: viasnake/ledra
-  LEDRA_ENGINE_REF: v0.1.0
   LEDRA_REGISTRY_PATH: registry
   CLOUDFLARE_WORKER_BASENAME: ledra-registry
 
@@ -21,15 +19,10 @@ jobs:
     outputs:
       worker_name: ${{ steps.worker-name.outputs.value }}
     steps:
-      - name: Checkout data repository
-        uses: actions/checkout@v4
-
-      - name: Checkout Ledra engine
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.LEDRA_ENGINE_REPO }}
-          ref: ${{ env.LEDRA_ENGINE_REF }}
-          path: engine
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -38,33 +31,22 @@ jobs:
 
       - name: Install dependencies
         run: npm install
-        working-directory: engine
 
-      - name: Build engine
+      - name: Build repository
         run: npm run build
-        working-directory: engine
 
       - name: Run tests
         run: npm test
-        working-directory: engine
 
       - name: Validate registry data
         run: npm exec --workspace @ledra/cli ledra -- validate --registry "${{ github.workspace }}/${{ env.LEDRA_REGISTRY_PATH }}"
-        working-directory: engine
 
       - name: Export bundle
         run: npm exec --workspace @ledra/cli ledra -- export --registry "${{ github.workspace }}/${{ env.LEDRA_REGISTRY_PATH }}" --out ".artifacts/cloudflare/bundle.json"
-        working-directory: engine
-
-      - name: Resolve engine commit SHA
-        id: engine-sha
-        run: printf 'sha=%s\n' "$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
-        working-directory: engine
 
       - name: Resolve preview worker name
         id: worker-name
         run: printf 'value=%s\n' "${CLOUDFLARE_WORKER_BASENAME}-pr-${PR_NUMBER}" >> "$GITHUB_OUTPUT"
-        working-directory: engine
         env:
           PR_NUMBER: ${{ github.event.number }}
 
@@ -73,20 +55,16 @@ jobs:
           node scripts/package-cloudflare.mjs
           --bundle .artifacts/cloudflare/bundle.json
           --out deploy/cloudflare/public
-          --data-repo "${{ github.repository }}"
-          --data-ref "${{ github.event.pull_request.head.ref }}"
-          --data-commit "${{ github.event.pull_request.head.sha }}"
+          --repo "${{ github.repository }}"
+          --ref "refs/heads/${{ github.event.pull_request.head.ref }}"
+          --commit "${{ github.event.pull_request.head.sha }}"
           --registry-path "${{ env.LEDRA_REGISTRY_PATH }}"
-          --engine-repo "${{ env.LEDRA_ENGINE_REPO }}"
-          --engine-ref "${{ env.LEDRA_ENGINE_REF }}"
-          --engine-commit "${{ steps.engine-sha.outputs.sha }}"
-        working-directory: engine
 
       - name: Upload packaged assets
         uses: actions/upload-artifact@v4
         with:
           name: ledra-preview-package
-          path: engine/deploy/cloudflare/public
+          path: deploy/cloudflare/public
 
   deploy-preview:
     if: github.event.action != 'closed' && github.event.pull_request.head.repo.full_name == github.repository
@@ -94,18 +72,16 @@ jobs:
     runs-on: ubuntu-latest
     environment: preview
     steps:
-      - name: Checkout Ledra engine
+      - name: Checkout trusted repository config
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.LEDRA_ENGINE_REPO }}
-          ref: ${{ env.LEDRA_ENGINE_REF }}
-          path: engine
+          ref: refs/heads/${{ github.event.repository.default_branch }}
 
       - name: Download packaged assets
         uses: actions/download-artifact@v4
         with:
           name: ledra-preview-package
-          path: engine/deploy/cloudflare/public
+          path: deploy/cloudflare/public
 
       - name: Render preview Wrangler config
         run: >-
@@ -113,14 +89,13 @@ jobs:
           --input deploy/cloudflare/wrangler.toml.example
           --output deploy/cloudflare/wrangler.toml
           --worker-name "${{ needs.build-preview.outputs.worker_name }}"
-        working-directory: engine
 
       - name: Deploy preview to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: engine/deploy/cloudflare
+          workingDirectory: deploy/cloudflare
           command: deploy
 
       - name: Comment preview URL
@@ -133,8 +108,8 @@ jobs:
               'Ledra preview deployed.',
               '',
               `- URL: ${previewUrl}`,
-              `- Data commit: ${context.payload.pull_request.head.sha}`,
-              `- Engine ref: ${process.env.LEDRA_ENGINE_REF}`
+              `- Repository: ${context.repo.owner}/${context.repo.repo}`,
+              `- Commit: ${context.payload.pull_request.head.sha}`
             ].join('\n');
             await github.rest.issues.createComment({
               owner: context.repo.owner,
@@ -150,12 +125,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: preview
     steps:
-      - name: Checkout Ledra engine
+      - name: Checkout trusted repository config
         uses: actions/checkout@v4
         with:
-          repository: ${{ env.LEDRA_ENGINE_REPO }}
-          ref: ${{ env.LEDRA_ENGINE_REF }}
-          path: engine
+          ref: refs/heads/${{ github.event.repository.default_branch }}
 
       - name: Render preview Wrangler config
         run: >-
@@ -163,12 +136,11 @@ jobs:
           --input deploy/cloudflare/wrangler.toml.example
           --output deploy/cloudflare/wrangler.toml
           --worker-name "${{ env.CLOUDFLARE_WORKER_BASENAME }}-pr-${{ github.event.number }}"
-        working-directory: engine
 
       - name: Delete preview worker
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: engine/deploy/cloudflare
+          workingDirectory: deploy/cloudflare
           command: delete --force

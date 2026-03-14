@@ -76,7 +76,8 @@ Returns view definitions from `registry/views/`.
 ### `GET /api/metadata`
 
 Cloudflare deployments may expose deployment metadata from `metadata.json` beside the static bundle.
-This endpoint is optional outside Cloudflare packaging.
+This endpoint is optional outside Cloudflare packaging. The current schema exposes a single `repository`
+object plus bundle metadata.
 
 ## Errors
 
