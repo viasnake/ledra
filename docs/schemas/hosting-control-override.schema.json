@@ -1,0 +1,197 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledra.dev/schemas/hosting-control-override.schema.json",
+  "title": "Ledra Hosting Control Override",
+  "type": "object",
+  "required": ["kind", "version", "tenantId", "slug", "override"],
+  "properties": {
+    "kind": {
+      "const": "ledra-override"
+    },
+    "version": {
+      "const": 1
+    },
+    "tenantId": {
+      "type": "string",
+      "pattern": "^tnt_[A-Za-z0-9]{8,}$"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$"
+    },
+    "override": {
+      "type": "object",
+      "required": ["kind", "reason", "actor", "ticket", "createdAt"],
+      "properties": {
+        "kind": {
+          "type": "string",
+          "enum": [
+            "deploy_freeze",
+            "source_pin",
+            "force_rollback",
+            "suspend",
+            "resume",
+            "domain_disable"
+          ]
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "actor": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "ticket": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "manualClear": {
+          "type": "boolean"
+        },
+        "parameters": {
+          "type": "object"
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {
+              "required": ["expiresAt"]
+            },
+            {
+              "required": ["manualClear"]
+            }
+          ]
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "source_pin"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "required": ["customerRepoCommitSha"],
+                "properties": {
+                  "customerRepoCommitSha": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{7,64}$"
+                  },
+                  "controlRepoCommitSha": {
+                    "type": "string",
+                    "pattern": "^[a-f0-9]{7,64}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "force_rollback"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "oneOf": [
+                  {
+                    "required": ["targetDeploymentId"]
+                  },
+                  {
+                    "required": ["targetTenantRevisionId"]
+                  }
+                ],
+                "properties": {
+                  "targetDeploymentId": {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  "targetTenantRevisionId": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "suspend"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "required": ["suspensionReasonCode"],
+                "properties": {
+                  "suspensionReasonCode": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "domain_disable"
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "parameters": {
+                "type": "object",
+                "required": ["hostname"],
+                "properties": {
+                  "hostname": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 253,
+                    "pattern": "^(?=.{1,253}$)(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        }
+      ],
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

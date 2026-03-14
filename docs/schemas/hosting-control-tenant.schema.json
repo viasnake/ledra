@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledra.dev/schemas/hosting-control-tenant.schema.json",
+  "title": "Ledra Hosting Control Tenant",
+  "type": "object",
+  "required": [
+    "tenantId",
+    "slug",
+    "displayName",
+    "github",
+    "engine",
+    "deployment",
+    "policy",
+    "statusIntent"
+  ],
+  "properties": {
+    "tenantId": {
+      "type": "string",
+      "pattern": "^tnt_[A-Za-z0-9]{8,}$"
+    },
+    "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "github": {
+      "type": "object",
+      "required": [
+        "installationId",
+        "repository",
+        "defaultRef",
+        "registryPath",
+        "repositoryNodeId"
+      ],
+      "properties": {
+        "installationId": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "repository": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9_.-]+\\/[A-Za-z0-9_.-]+$"
+        },
+        "defaultRef": {
+          "type": "string",
+          "pattern": "^refs\\/.+$"
+        },
+        "registryPath": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^(?!/)(?!.*\\.\\.)(?!.*//).+$"
+        },
+        "repositoryNodeId": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "engine": {
+      "type": "object",
+      "required": ["ledraVersion"],
+      "properties": {
+        "ledraVersion": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "deployment": {
+      "type": "object",
+      "required": ["environment", "cloudflareTarget", "productionHostname"],
+      "properties": {
+        "environment": {
+          "type": "string",
+          "enum": ["production"]
+        },
+        "cloudflareTarget": {
+          "type": "string",
+          "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$"
+        },
+        "productionHostname": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 253,
+          "pattern": "^(?=.{1,253}$)(?!-)(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\\.)+[A-Za-z]{2,63}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "policy": {
+      "type": "object",
+      "required": ["autoDeploy", "suspended"],
+      "properties": {
+        "autoDeploy": {
+          "type": "boolean"
+        },
+        "suspended": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "statusIntent": {
+      "type": "object",
+      "required": ["state"],
+      "properties": {
+        "state": {
+          "type": "string",
+          "enum": ["pending", "active", "suspended", "degraded", "deleted"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

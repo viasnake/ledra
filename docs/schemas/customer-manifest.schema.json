@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ledra.dev/schemas/customer-manifest.schema.json",
+  "title": "Ledra Customer Manifest",
+  "type": "object",
+  "required": ["kind", "version", "tenant", "registry"],
+  "properties": {
+    "kind": {
+      "const": "ledra-tenant"
+    },
+    "version": {
+      "const": 1
+    },
+    "tenant": {
+      "type": "object",
+      "required": ["slug"],
+      "properties": {
+        "slug": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]{1,30}[a-z0-9]$"
+        },
+        "displayName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      "additionalProperties": false
+    },
+    "registry": {
+      "type": "object",
+      "required": ["path"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^(?!/)(?!.*\\.\\.)(?!.*//).+$"
+        }
+      },
+      "additionalProperties": false
+    },
+    "deployment": {
+      "type": "object",
+      "properties": {
+        "channel": {
+          "type": "string",
+          "enum": ["production"]
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
