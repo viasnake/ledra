@@ -16,11 +16,14 @@ Ledra is a **Git-native registry engine** that validates, searches, browses, and
 ## Quickstart
 
 ```bash
+mise install
 npm install
 npm run build
 npm exec --workspace @ledra/cli ledra -- validate --registry packages/sample-data/registry
 npm exec --workspace @ledra/cli ledra -- export --registry packages/sample-data/registry --out apps/web/dist/bundle.json
 ```
+
+Ledra development targets Node.js 20.x. If you use `mise`, the repository-local `mise.toml` installs the expected runtime.
 
 Then open `apps/web/dist/index.html` with a static file server and browse the generated registry bundle.
 

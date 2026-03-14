@@ -4,16 +4,19 @@ This guide shows how to run Ledra against a Git-managed registry repository.
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 20.x
 - npm
 - Git
 
 ## 1) Install and build
 
 ```bash
+mise install
 npm install
 npm run build
 ```
+
+If you use `mise`, the repository-local `mise.toml` installs the expected Node.js runtime.
 
 ## 2) Prepare a registry data repository
 

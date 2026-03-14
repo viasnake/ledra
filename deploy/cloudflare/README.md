@@ -26,9 +26,12 @@ Use this flow when validating the Cloudflare package locally inside the deployme
 ### 1) Build Ledra
 
 ```bash
+mise install
 npm install
 npm run build
 ```
+
+This repository targets Node.js 20.x. `mise.toml` provides that runtime for local packaging flows.
 
 ### 2) Prepare sample registry data
 

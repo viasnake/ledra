@@ -3,9 +3,12 @@
 Build first:
 
 ```bash
+mise install
 npm install
 npm run build
 ```
+
+The repository targets Node.js 20.x. `mise.toml` provides that runtime if you use `mise` locally.
 
 Run the CLI through the workspace bin:
 
