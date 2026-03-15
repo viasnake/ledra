@@ -17,12 +17,12 @@ export const uiCopy = {
     subtitle: 'ネットワーク・レジストリ・ビューア'
   },
   nav: {
-    workspace: 'ワークスペース',
-    explore: '探索'
+    list: '一覧',
+    scopes: 'スコープ'
   },
   routes: {
-    overview: 'ワークスペース',
-    explore: '探索',
+    overview: '一覧',
+    explore: '一覧',
     scopes: 'スコープ'
   },
   actions: {
@@ -56,6 +56,26 @@ export const uiCopy = {
     incoming: '入力側',
     outgoing: '出力側',
     graph: '関係グラフ'
+  },
+  table: {
+    node: 'ノード',
+    type: '種別',
+    relationCount: '関係数',
+    tags: 'タグ',
+    attributes: '主要属性',
+    action: '操作',
+    openDetail: '詳細'
+  },
+  system: {
+    toggle: 'システム情報を表示',
+    title: 'システム情報',
+    bundlePath: 'bundle パス',
+    generatedAt: '生成日時',
+    mode: '配信モード',
+    entities: 'ノード数',
+    relations: '関係数',
+    scopes: 'スコープ数',
+    policies: 'ポリシー数'
   },
   status: {
     loadingTitle: '公開 bundle を読み込んでいます',

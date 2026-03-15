@@ -18,73 +18,96 @@ export const AppLayout = () => {
   const [searchParams] = useSearchParams();
   const activeScopeId = scopeId ?? searchParams.get('scope') ?? undefined;
   const selectedScope = activeScopeId ? getSelectedView(bundle.graph, activeScopeId) : undefined;
+  const firstScopeId = bundle.graph.views[0]?.id;
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 pb-12 pt-6 sm:px-6 lg:px-8">
-      <header className="topbar-blur sticky top-4 z-20 mb-6 overflow-hidden rounded-[30px] border border-white/70 bg-white/78 shadow-[0_24px_90px_rgba(15,23,42,0.12)] backdrop-blur-2xl">
-        <div className="flex flex-col gap-5 px-5 py-5 lg:px-7">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-              <NavLink className="flex items-center gap-4" to="/">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-950 text-lg font-black tracking-[0.2em] text-white">
-                  L
-                </div>
-                <div>
-                  <p className="text-lg font-semibold tracking-tight text-slate-950">
-                    {uiCopy.brand.title}
-                  </p>
-                  <p className="text-sm text-slate-500">{uiCopy.brand.subtitle}</p>
-                </div>
+    <main className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 pb-8 pt-4 sm:px-6 lg:px-8">
+      <header className="topbar-blur sticky top-2 z-20 mb-5 overflow-hidden rounded-[24px] border border-white/70 bg-white/86 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <NavLink className="flex items-center gap-3" to="/">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-950 text-sm font-black tracking-[0.2em] text-white">
+                L
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-base font-semibold tracking-tight text-slate-950">
+                  {uiCopy.brand.title}
+                </p>
+                <p className="truncate text-xs text-slate-500">{uiCopy.brand.subtitle}</p>
+              </div>
+            </NavLink>
+          </div>
+
+          <nav className="flex items-center gap-2" aria-label="主要ナビゲーション">
+            <NavLink className={navClassName} end to="/">
+              {uiCopy.nav.list}
+            </NavLink>
+            {firstScopeId ? (
+              <NavLink className={navClassName} to={`/scopes/${firstScopeId}`}>
+                {uiCopy.nav.scopes}
               </NavLink>
+            ) : null}
+          </nav>
 
-              <div className="hidden h-10 w-px bg-slate-200 lg:block" />
-
-              <div className="flex flex-wrap items-center gap-2">
-                <NavLink className={navClassName} end to="/">
-                  {uiCopy.nav.workspace}
-                </NavLink>
-                <NavLink className={navClassName} to="/explore">
-                  {uiCopy.nav.explore}
-                </NavLink>
-                {selectedScope ? (
-                  <span className="inline-flex items-center rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-800">
-                    {uiCopy.labels.currentScope}: {selectedScope.title}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-              <div className="data-chip">
-                <span>{uiCopy.labels.generatedAt}</span>
-                <strong>{formatGeneratedAt(bundle.generatedAt)}</strong>
-              </div>
-              <div className="data-chip">
-                <span>{uiCopy.labels.mode}</span>
-                <strong>{viewerMode}</strong>
-              </div>
-              <div className="data-chip">
-                <span>{uiCopy.labels.entities}</span>
-                <strong>{bundle.diagnostics.counts.entities}</strong>
-              </div>
-              <div className="data-chip">
-                <span>{uiCopy.labels.relations}</span>
-                <strong>{bundle.diagnostics.counts.relations}</strong>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3 rounded-[24px] border border-slate-200/80 bg-slate-50/80 px-4 py-3 text-sm text-slate-600">
-            <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 font-medium text-slate-700 shadow-sm">
-              <span className="h-2 w-2 rounded-full bg-teal-500" />
-              {uiCopy.labels.sourceBundle}
+          {selectedScope ? (
+            <span className="inline-flex items-center rounded-full border border-teal-200 bg-teal-50 px-4 py-2 text-sm font-semibold text-teal-800">
+              {uiCopy.labels.currentScope}: {selectedScope.title}
             </span>
-            <code className="truncate font-mono text-xs text-slate-500">{bundlePath}</code>
-          </div>
+          ) : (
+            <span className="text-sm font-medium text-slate-500">{uiCopy.labels.allScopes}</span>
+          )}
         </div>
       </header>
 
-      <Outlet />
+      <div className="flex-1">
+        <Outlet />
+      </div>
+
+      <footer className="mt-6">
+        <details className="rounded-2xl border border-slate-200/90 bg-white/70 px-4 py-3 text-sm text-slate-600">
+          <summary className="cursor-pointer select-none font-semibold text-slate-700">
+            {uiCopy.system.toggle}
+          </summary>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2">
+              <span className="text-xs text-slate-500">{uiCopy.system.bundlePath}</span>
+              <p className="mt-1 break-all font-mono text-xs text-slate-700">{bundlePath}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2">
+              <span className="text-xs text-slate-500">{uiCopy.system.generatedAt}</span>
+              <p className="mt-1 font-medium text-slate-700">
+                {formatGeneratedAt(bundle.generatedAt)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2">
+              <span className="text-xs text-slate-500">{uiCopy.system.mode}</span>
+              <p className="mt-1 font-medium text-slate-700">{viewerMode}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2">
+              <span className="text-xs text-slate-500">{uiCopy.system.entities}</span>
+              <p className="mt-1 font-medium text-slate-700">
+                {bundle.diagnostics.counts.entities}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2">
+              <span className="text-xs text-slate-500">{uiCopy.system.relations}</span>
+              <p className="mt-1 font-medium text-slate-700">
+                {bundle.diagnostics.counts.relations}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2">
+              <span className="text-xs text-slate-500">{uiCopy.system.scopes}</span>
+              <p className="mt-1 font-medium text-slate-700">{bundle.diagnostics.counts.views}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/70 px-3 py-2">
+              <span className="text-xs text-slate-500">{uiCopy.system.policies}</span>
+              <p className="mt-1 font-medium text-slate-700">
+                {bundle.diagnostics.counts.policies}
+              </p>
+            </div>
+          </div>
+        </details>
+      </footer>
     </main>
   );
 };

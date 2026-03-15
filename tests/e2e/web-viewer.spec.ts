@@ -33,41 +33,23 @@ const expectVerticalFlow = async (locators: Locator[]) => {
 test('workspace leads into explore and node detail flow', async ({ page }) => {
   await page.goto('/');
 
-  await expect(
-    page.getByRole('heading', {
-      level: 1,
-      name: /ネットワーク全体を、関係性から読む。/u
-    })
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: /すべてのノード/u })).toBeVisible();
+  await expect(page.getByRole('table', { name: /ノード一覧テーブル/u })).toBeVisible();
 
-  await expectVerticalFlow([
-    page.locator('header').first(),
-    page.locator('section').nth(0),
-    page.locator('section').nth(1)
-  ]);
+  await expectVerticalFlow([page.locator('header').first(), page.locator('section').nth(0)]);
   await expectNoHorizontalOverflow(page);
-
-  await page.getByRole('link', { name: /探索を始める/u }).click();
-  await expect(page).toHaveURL(/\/explore$/u);
 
   await page.getByLabel('検索').fill('web');
-  await expect(
-    page
-      .locator('a')
-      .filter({ has: page.locator('h3') })
-      .first()
-  ).toBeVisible();
+  await expect(page.locator('tbody tr').first()).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
-  const firstCard = page
-    .locator('a')
-    .filter({ has: page.locator('h3') })
-    .first();
-  const firstCardTitle = (await firstCard.locator('h3').textContent())?.trim() ?? '';
-  await firstCard.click();
+  const firstRow = page.locator('tbody tr').first();
+  const firstRowTitle =
+    (await firstRow.locator('td').first().locator('p').first().textContent())?.trim() ?? '';
+  await firstRow.getByRole('link', { name: /詳細/u }).click();
 
   await expect(page).toHaveURL(/\/nodes\//u);
-  await expect(page.getByRole('heading', { level: 1, name: firstCardTitle })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: firstRowTitle })).toBeVisible();
   await expectVerticalFlow([
     page.locator('nav[aria-label="Breadcrumb"]'),
     page.locator('section').nth(0),
@@ -82,7 +64,7 @@ test('node deep link survives reload and preserves return context', async ({ pag
   await expect(page.getByRole('heading', { level: 1, name: 'web-01' })).toBeVisible();
   await expect(page.getByRole('link', { name: /結果に戻る/u })).toHaveAttribute(
     'href',
-    /\/explore\?q=web/u
+    /\/\?q=web/u
   );
   await expect(page.locator('svg[aria-label$="関係グラフ"]')).toBeVisible();
   await expectNoHorizontalOverflow(page);

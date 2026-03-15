@@ -1,8 +1,12 @@
 import { useMemo } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { EntityCard } from '../components/EntityCard';
-import { RelationGraph } from '../components/RelationGraph';
-import { formatEntityTypeLabel, uiCopy } from '../copy';
+import {
+  Link,
+  createSearchParams,
+  useNavigate,
+  useParams,
+  useSearchParams
+} from 'react-router-dom';
+import { formatAttributeValue, formatEntityTypeLabel, uiCopy } from '../copy';
 import {
   filterEntitiesForViewer,
   getEntityRelations,
@@ -17,17 +21,13 @@ export const EntityListPage = () => {
   const { scopeId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchText = searchParams.get('q') ?? '';
+
+  const selectedScope = scopeId ? getSelectedView(bundle.graph, scopeId) : undefined;
   const filteredView = useMemo(
     () => filterEntitiesForViewer(bundle, searchText, scopeId),
-    [bundle, searchText, scopeId]
+    [bundle, scopeId, searchText]
   );
-  const selectedScope = scopeId ? getSelectedView(bundle.graph, scopeId) : undefined;
   const relationDegrees = useMemo(() => getRelationDegreeMap(bundle), [bundle]);
-  const visibleEntities = filteredView.entities;
-  const spotlightEntity = [...visibleEntities].sort(
-    (left, right) => (relationDegrees.get(right.id) ?? 0) - (relationDegrees.get(left.id) ?? 0)
-  )[0];
-  const spotlightRelations = spotlightEntity ? getEntityRelations(bundle, spotlightEntity.id) : [];
   const availableScopes = bundle.graph.views;
 
   if (scopeId && !selectedScope) {
@@ -36,7 +36,7 @@ export const EntityListPage = () => {
         <p className="eyebrow">不明なスコープ</p>
         <h1>{uiCopy.status.scopeNotFoundTitle}</h1>
         <p>{uiCopy.status.scopeNotFoundBody}</p>
-        <Link className="primary-button mt-6" to="/explore">
+        <Link className="primary-button mt-6" to="/">
           {uiCopy.labels.allNodes}
         </Link>
       </section>
@@ -44,208 +44,172 @@ export const EntityListPage = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_360px]">
-        <article className="panel px-6 py-7 sm:px-8 sm:py-8">
-          <div className="flex flex-col gap-6">
-            <div className="space-y-4">
-              <p className="eyebrow">探索</p>
-              <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-slate-950 sm:text-[2.8rem]">
-                {selectedScope ? selectedScope.title : 'ノードと関係を横断して探索する'}
-              </h1>
-              <p className="max-w-2xl text-base leading-8 text-slate-600">
-                {selectedScope?.summary ??
-                  '検索、スコープ、関係密度を手掛かりに、bundle 内の network を絞り込みながら探索できます。'}
-              </p>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-[minmax(0,1.3fr)_260px]">
-              <label className="space-y-2" htmlFor="entity-search">
-                <span className="text-sm font-semibold text-slate-700">{uiCopy.labels.search}</span>
-                <input
-                  id="entity-search"
-                  className="field-input"
-                  placeholder={uiCopy.labels.searchPlaceholder}
-                  value={searchText}
-                  onChange={(event) => {
-                    const next = new URLSearchParams(searchParams);
-                    if (event.target.value) {
-                      next.set('q', event.target.value);
-                    } else {
-                      next.delete('q');
-                    }
-
-                    setSearchParams(next, { replace: true });
-                  }}
-                />
-              </label>
-
-              <label className="space-y-2" htmlFor="scope-select">
-                <span className="text-sm font-semibold text-slate-700">{uiCopy.routes.scopes}</span>
-                <select
-                  className="field-input"
-                  id="scope-select"
-                  value={scopeId ?? ''}
-                  onChange={(event) => {
-                    const nextScopeId = event.target.value;
-                    const nextQuery = searchText ? `?q=${encodeURIComponent(searchText)}` : '';
-                    navigate(
-                      nextScopeId ? `/scopes/${nextScopeId}${nextQuery}` : `/explore${nextQuery}`
-                    );
-                  }}
-                >
-                  <option value="">{uiCopy.labels.allScopes}</option>
-                  {availableScopes.map((scope) => (
-                    <option key={scope.id} value={scope.id}>
-                      {scope.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="metric-card">
-                <span>表示ノード</span>
-                <strong>{visibleEntities.length}</strong>
-                <p>現在の検索語とスコープに含まれるノード数です。</p>
-              </div>
-              <div className="metric-card">
-                <span>対象タイプ</span>
-                <strong>
-                  {selectedScope
-                    ? selectedScope.entityTypes
-                        .map((type) => formatEntityTypeLabel(type))
-                        .join(' / ')
-                    : uiCopy.labels.allNodes}
-                </strong>
-                <p>探索対象の型をスコープ単位で切り替えられます。</p>
-              </div>
-              <div className="metric-card">
-                <span>検索クエリ</span>
-                <strong>{searchText || '未指定'}</strong>
-                <p>絞り込みが空の時は bundle 全体を横断します。</p>
-              </div>
-            </div>
-          </div>
-        </article>
-
-        <aside className="panel px-6 py-7">
+    <div className="space-y-5">
+      <section className="panel px-4 py-5 sm:px-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <p className="eyebrow">スコープ一覧</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-              利用可能なスコープ
-            </h2>
+            <p className="eyebrow">ノード一覧</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl">
+              {selectedScope ? `${selectedScope.title} のノード` : 'すべてのノード'}
+            </h1>
           </div>
-          <div className="mt-5 space-y-3">
-            {availableScopes.map((scope) => (
-              <Link
-                key={scope.id}
-                className={`scope-card ${scope.id === selectedScope?.id ? 'border-teal-200 bg-teal-50/80' : ''}`}
-                to={`/scopes/${scope.id}${searchText ? `?q=${encodeURIComponent(searchText)}` : ''}`}
-              >
-                <div>
-                  <p className="font-semibold text-slate-950">{scope.title}</p>
-                  <p className="mt-1 text-sm leading-6 text-slate-600">
-                    {scope.summary ?? '関連の切り口を固定しながら探索できます。'}
-                  </p>
-                </div>
-                <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600 shadow-sm">
-                  {scope.entityTypes.length}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </aside>
-      </section>
-
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1.38fr)_360px]">
-        <article className="panel px-6 py-7 sm:px-8">
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="eyebrow">結果レーン</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                {visibleEntities.length === 0
-                  ? uiCopy.status.noResultsTitle
-                  : 'ノードを開いて関係を読む'}
-              </h2>
-            </div>
-            <span className="rounded-full bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-600">
-              {visibleEntities.length}
+          <div className="flex flex-wrap items-center gap-3 rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-600">
+            <span>
+              {filteredView.entities.length}
               {uiCopy.labels.visible}
             </span>
-          </div>
-
-          {visibleEntities.length === 0 ? (
-            <div className="empty-state-block">
-              <p>{uiCopy.status.noResultsBody}</p>
-              <button
-                className="secondary-button mt-5"
-                onClick={() => setSearchParams(new URLSearchParams())}
-                type="button"
-              >
-                {uiCopy.actions.clearFilters}
-              </button>
-            </div>
-          ) : (
-            <div className="grid gap-5" aria-live="polite">
-              {visibleEntities.map((entity) => (
-                <EntityCard
-                  key={entity.id}
-                  entity={entity}
-                  relationCount={relationDegrees.get(entity.id) ?? 0}
-                  scopeId={selectedScope?.id}
-                  searchText={searchText}
-                />
-              ))}
-            </div>
-          )}
-        </article>
-
-        <aside className="space-y-6">
-          <section className="panel px-6 py-7">
-            <div className="mb-4">
-              <p className="eyebrow">関係プレビュー</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                現在の探索で目立つつながり
-              </h2>
-            </div>
-            {spotlightEntity ? (
-              <>
-                <RelationGraph
-                  className="min-h-[420px]"
-                  entity={spotlightEntity}
-                  entries={spotlightRelations}
-                />
-                <Link
-                  className="secondary-button mt-4"
-                  to={`/nodes/${spotlightEntity.id}${scopeId ? `?scope=${scopeId}` : ''}`}
-                >
-                  {spotlightEntity.title} を開く
-                </Link>
-              </>
+            {selectedScope ? (
+              <span className="rounded-full bg-teal-50 px-3 py-1 text-teal-700">
+                {selectedScope.title}
+              </span>
             ) : null}
-          </section>
+          </div>
+        </div>
 
-          <section className="panel px-6 py-7">
-            <div>
-              <p className="eyebrow">現在の範囲</p>
-              <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-                この範囲で見えている型
-              </h2>
-            </div>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {Array.from(new Set(visibleEntities.map((entity) => entity.type))).map((type) => (
-                <span
-                  key={type}
-                  className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700"
-                >
-                  {formatEntityTypeLabel(type)}
-                </span>
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_260px]">
+          <label className="space-y-1" htmlFor="entity-search">
+            <span className="text-sm font-semibold text-slate-700">{uiCopy.labels.search}</span>
+            <input
+              id="entity-search"
+              className="field-input"
+              placeholder={uiCopy.labels.searchPlaceholder}
+              value={searchText}
+              onChange={(event) => {
+                const next = new URLSearchParams(searchParams);
+                if (event.target.value) {
+                  next.set('q', event.target.value);
+                } else {
+                  next.delete('q');
+                }
+                setSearchParams(next, { replace: true });
+              }}
+            />
+          </label>
+
+          <label className="space-y-1" htmlFor="scope-select">
+            <span className="text-sm font-semibold text-slate-700">{uiCopy.routes.scopes}</span>
+            <select
+              className="field-input"
+              id="scope-select"
+              value={scopeId ?? ''}
+              onChange={(event) => {
+                const nextScopeId = event.target.value;
+                const query = searchText ? `?q=${encodeURIComponent(searchText)}` : '';
+                navigate(nextScopeId ? `/scopes/${nextScopeId}${query}` : `/${query}`);
+              }}
+            >
+              <option value="">{uiCopy.labels.allScopes}</option>
+              {availableScopes.map((scope) => (
+                <option key={scope.id} value={scope.id}>
+                  {scope.title}
+                </option>
               ))}
-            </div>
-          </section>
-        </aside>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section className="panel overflow-hidden px-0 py-0">
+        {filteredView.entities.length === 0 ? (
+          <div className="empty-state-block m-4">
+            <p>{uiCopy.status.noResultsBody}</p>
+            <button
+              className="secondary-button mt-4"
+              onClick={() => setSearchParams(new URLSearchParams())}
+              type="button"
+            >
+              {uiCopy.actions.clearFilters}
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table
+              className="min-w-full border-separate border-spacing-0"
+              aria-label="ノード一覧テーブル"
+            >
+              <thead className="bg-slate-50/85 text-left text-xs tracking-[0.12em] text-slate-500 uppercase">
+                <tr>
+                  <th className="px-4 py-3 font-semibold">{uiCopy.table.node}</th>
+                  <th className="px-4 py-3 font-semibold">{uiCopy.table.type}</th>
+                  <th className="hidden px-4 py-3 font-semibold md:table-cell">ID</th>
+                  <th className="px-4 py-3 font-semibold text-right">
+                    {uiCopy.table.relationCount}
+                  </th>
+                  <th className="hidden px-4 py-3 font-semibold lg:table-cell">
+                    {uiCopy.table.tags}
+                  </th>
+                  <th className="hidden px-4 py-3 font-semibold xl:table-cell">
+                    {uiCopy.table.attributes}
+                  </th>
+                  <th className="px-4 py-3 font-semibold text-right">{uiCopy.table.action}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredView.entities.map((entity) => {
+                  const relationCount =
+                    relationDegrees.get(entity.id) ?? getEntityRelations(bundle, entity.id).length;
+                  const params = createSearchParams({
+                    ...(scopeId ? { scope: scopeId } : {}),
+                    ...(searchText ? { q: searchText } : {})
+                  }).toString();
+                  const preview = Object.entries(entity.attributes).slice(0, 2);
+
+                  return (
+                    <tr
+                      key={entity.id}
+                      className="border-t border-slate-200/80 text-sm text-slate-700 hover:bg-sky-50/30"
+                    >
+                      <td className="px-4 py-3 align-top">
+                        <p className="font-semibold text-slate-900">{entity.title}</p>
+                        <p className="mt-1 line-clamp-1 text-xs text-slate-500">
+                          {entity.summary ?? '概要は未設定です。'}
+                        </p>
+                      </td>
+                      <td className="px-4 py-3 align-top">
+                        <span className="rounded-full bg-sky-100 px-2 py-1 text-xs font-semibold text-sky-700">
+                          {formatEntityTypeLabel(entity.type)}
+                        </span>
+                      </td>
+                      <td className="hidden px-4 py-3 align-top font-mono text-xs text-slate-500 md:table-cell">
+                        {entity.id}
+                      </td>
+                      <td className="px-4 py-3 text-right align-top font-semibold text-slate-800">
+                        {relationCount}
+                      </td>
+                      <td className="hidden px-4 py-3 align-top lg:table-cell">
+                        <div className="flex flex-wrap gap-1">
+                          {entity.tags.slice(0, 2).map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-700"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                      <td className="hidden px-4 py-3 align-top text-xs text-slate-500 xl:table-cell">
+                        {preview.length > 0
+                          ? preview
+                              .map(([key, value]) => `${key}: ${formatAttributeValue(value)}`)
+                              .join(' / ')
+                          : '-'}
+                      </td>
+                      <td className="px-4 py-3 text-right align-top">
+                        <Link
+                          className="inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
+                          to={`/nodes/${entity.id}${params ? `?${params}` : ''}`}
+                        >
+                          {uiCopy.table.openDetail}
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
     </div>
   );

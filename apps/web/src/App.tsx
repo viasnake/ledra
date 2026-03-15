@@ -7,7 +7,6 @@ import { uiCopy } from './copy';
 import { EntityDetailPage } from './routes/EntityDetailPage';
 import { EntityListPage } from './routes/EntityListPage';
 import { NotFoundPage } from './routes/NotFoundPage';
-import { OverviewPage } from './routes/OverviewPage';
 import { ViewerProvider } from './viewer-context';
 import './styles.css';
 
@@ -62,7 +61,7 @@ const App = () => {
     <ViewerProvider value={{ bundle: state.bundle, bundlePath: state.bundlePath }}>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route index element={<OverviewPage />} />
+          <Route index element={<EntityListPage />} />
           <Route path="explore" element={<EntityListPage />} />
           <Route path="nodes/:entityId" element={<EntityDetailPage />} />
           <Route path="scopes/:scopeId" element={<EntityListPage />} />

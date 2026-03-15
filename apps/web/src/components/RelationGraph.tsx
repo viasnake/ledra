@@ -28,7 +28,7 @@ const getTypeColor = (type: string) => {
   return graphPalette[hash % graphPalette.length];
 };
 
-const clampEntries = (entries: readonly GraphNode[]) => entries.slice(0, 6);
+const clampEntries = (entries: readonly GraphNode[]) => entries.slice(0, 4);
 
 const distributeY = (index: number, total: number) => {
   if (total <= 1) {
@@ -104,7 +104,7 @@ export const RelationGraph = ({
 
       <svg
         aria-label={`${entity.title} の関係グラフ`}
-        className="h-[380px] w-full overflow-visible"
+        className="h-[280px] w-full"
         viewBox="0 0 820 480"
       >
         <defs>
@@ -115,8 +115,8 @@ export const RelationGraph = ({
         </defs>
 
         <g opacity="0.9">
-          <circle cx="410" cy="240" r="124" fill="url(#ledra-center-glow)" />
-          <circle cx="410" cy="240" r="148" fill="none" stroke="#dbeafe" strokeDasharray="6 10" />
+          <circle cx="410" cy="240" r="112" fill="url(#ledra-center-glow)" />
+          <circle cx="410" cy="240" r="136" fill="none" stroke="#dbeafe" strokeDasharray="6 10" />
         </g>
 
         {[...incomingNodes, ...outgoingNodes].map((node, index) => {
@@ -186,31 +186,31 @@ export const RelationGraph = ({
                   cx={x}
                   cy={y}
                   fill="#ffffff"
-                  r={isActive ? 39 : 34}
+                  r={isActive ? 35 : 30}
                   stroke={edgeColor}
                   strokeWidth={isActive ? 4 : 2.5}
                 />
-                <circle cx={x} cy={y} fill={edgeColor} fillOpacity="0.08" r={46} />
+                <circle cx={x} cy={y} fill={edgeColor} fillOpacity="0.08" r={40} />
                 <text
                   fill="#0f172a"
                   fontFamily="Manrope, sans-serif"
-                  fontSize="13"
+                  fontSize="12"
                   fontWeight="700"
                   textAnchor="middle"
                   x={x}
                   y={y - 2}
                 >
-                  {node.title.slice(0, 16)}
+                  {node.title.slice(0, 14)}
                 </text>
                 <text
                   fill="#475569"
                   fontFamily="IBM Plex Mono, monospace"
-                  fontSize="10"
+                  fontSize="9"
                   textAnchor="middle"
                   x={x}
                   y={y + 16}
                 >
-                  {formatEntityTypeLabel(node.type).slice(0, 16)}
+                  {formatEntityTypeLabel(node.type).slice(0, 12)}
                 </text>
               </g>
             </g>
@@ -218,12 +218,12 @@ export const RelationGraph = ({
         })}
 
         <g>
-          <circle cx="410" cy="240" fill="#0f172a" r="66" />
+          <circle cx="410" cy="240" fill="#0f172a" r="56" />
           <circle
             cx="410"
             cy="240"
             fill="none"
-            r="74"
+            r="64"
             stroke="#0f172a"
             strokeOpacity="0.1"
             strokeWidth="36"
@@ -231,18 +231,18 @@ export const RelationGraph = ({
           <text
             fill="#f8fafc"
             fontFamily="Manrope, sans-serif"
-            fontSize="16"
+            fontSize="14"
             fontWeight="800"
             textAnchor="middle"
             x="410"
             y="235"
           >
-            {entity.title.slice(0, 18)}
+            {entity.title.slice(0, 14)}
           </text>
           <text
             fill="#cbd5e1"
             fontFamily="IBM Plex Mono, monospace"
-            fontSize="11"
+            fontSize="10"
             textAnchor="middle"
             x="410"
             y="254"
