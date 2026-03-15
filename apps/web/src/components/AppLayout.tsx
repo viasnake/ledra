@@ -22,7 +22,7 @@ export const AppLayout = () => {
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-[1480px] flex-col px-4 pb-8 pt-4 sm:px-6 lg:px-8">
-      <header className="topbar-blur sticky top-2 z-20 mb-5 overflow-hidden rounded-[24px] border border-white/70 bg-white/86 shadow-[0_18px_48px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      <header className="sticky top-2 z-20 mb-5 overflow-hidden rounded-[20px] border border-slate-200/90 bg-white shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
             <NavLink className="flex items-center gap-3" to="/">

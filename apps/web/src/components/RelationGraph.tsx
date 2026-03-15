@@ -1,3 +1,4 @@
+import { useMemo } from 'react';
 import type { EntityRecord } from '@ledra/types';
 import type { EntityRelationEntry } from '../index';
 import { cn } from '../lib/cn';
@@ -47,39 +48,43 @@ export const RelationGraph = ({
   onNodeSelect,
   className
 }: RelationGraphProps) => {
-  const groupedNodes = entries.reduce<Map<string, GraphNode>>((map, entry) => {
-    const fallbackId =
-      entry.direction === 'outgoing' ? entry.relation.target.id : entry.relation.source.id;
-    const key = `${entry.direction}:${fallbackId}`;
-    const current = map.get(key);
-    const relationType = entry.relation.type;
-    const nextNode: GraphNode = current
-      ? {
-          ...current,
-          relationIds: [...current.relationIds, entry.relation.id],
-          relationTypes: current.relationTypes.includes(relationType)
-            ? current.relationTypes
-            : [...current.relationTypes, relationType]
-        }
-      : {
-          id: fallbackId,
-          title: entry.relatedEntity?.title ?? fallbackId,
-          type: entry.relatedEntity?.type ?? 'unknown',
-          direction: entry.direction,
-          relationIds: [entry.relation.id],
-          relationTypes: [relationType]
-        };
+  const { incomingNodes, outgoingNodes } = useMemo(() => {
+    const groupedNodes = entries.reduce<Map<string, GraphNode>>((map, entry) => {
+      const fallbackId =
+        entry.direction === 'outgoing' ? entry.relation.target.id : entry.relation.source.id;
+      const key = `${entry.direction}:${fallbackId}`;
+      const current = map.get(key);
+      const relationType = entry.relation.type;
+      const nextNode: GraphNode = current
+        ? {
+            ...current,
+            relationIds: [...current.relationIds, entry.relation.id],
+            relationTypes: current.relationTypes.includes(relationType)
+              ? current.relationTypes
+              : [...current.relationTypes, relationType]
+          }
+        : {
+            id: fallbackId,
+            title: entry.relatedEntity?.title ?? fallbackId,
+            type: entry.relatedEntity?.type ?? 'unknown',
+            direction: entry.direction,
+            relationIds: [entry.relation.id],
+            relationTypes: [relationType]
+          };
 
-    map.set(key, nextNode);
-    return map;
-  }, new Map());
+      map.set(key, nextNode);
+      return map;
+    }, new Map());
 
-  const incomingNodes = clampEntries(
-    Array.from(groupedNodes.values()).filter((node) => node.direction === 'incoming')
-  );
-  const outgoingNodes = clampEntries(
-    Array.from(groupedNodes.values()).filter((node) => node.direction === 'outgoing')
-  );
+    return {
+      incomingNodes: clampEntries(
+        Array.from(groupedNodes.values()).filter((node) => node.direction === 'incoming')
+      ),
+      outgoingNodes: clampEntries(
+        Array.from(groupedNodes.values()).filter((node) => node.direction === 'outgoing')
+      )
+    };
+  }, [entries]);
 
   return (
     <div className={cn('graph-shell', className)}>
@@ -104,7 +109,7 @@ export const RelationGraph = ({
 
       <svg
         aria-label={`${entity.title} の関係グラフ`}
-        className="h-[280px] w-full"
+        className="h-[260px] w-full"
         viewBox="0 0 820 480"
       >
         <defs>
@@ -115,8 +120,8 @@ export const RelationGraph = ({
         </defs>
 
         <g opacity="0.9">
-          <circle cx="410" cy="240" r="112" fill="url(#ledra-center-glow)" />
-          <circle cx="410" cy="240" r="136" fill="none" stroke="#dbeafe" strokeDasharray="6 10" />
+          <circle cx="410" cy="240" r="102" fill="url(#ledra-center-glow)" />
+          <circle cx="410" cy="240" r="124" fill="none" stroke="#dbeafe" strokeDasharray="6 10" />
         </g>
 
         {[...incomingNodes, ...outgoingNodes].map((node, index) => {
@@ -218,12 +223,12 @@ export const RelationGraph = ({
         })}
 
         <g>
-          <circle cx="410" cy="240" fill="#0f172a" r="56" />
+          <circle cx="410" cy="240" fill="#0f172a" r="52" />
           <circle
             cx="410"
             cy="240"
             fill="none"
-            r="64"
+            r="58"
             stroke="#0f172a"
             strokeOpacity="0.1"
             strokeWidth="36"
@@ -253,7 +258,7 @@ export const RelationGraph = ({
       </svg>
 
       <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-slate-500">
-        <span>最大 12 ノードまで表示</span>
+        <span>最大 8 ノードまで表示</span>
         <span className="text-slate-300">/</span>
         <span>{entries.length} 件の関係</span>
       </div>

@@ -95,6 +95,24 @@ test('Cloudflare worker falls back to index.html for SPA routes', async () => {
   assert.match(await response.text(), /viewer/u);
 });
 
+test('Cloudflare worker falls back to index.html for extensionless routes without html accept header', async () => {
+  const env = createEnv({
+    '/index.html': '<!doctype html><title>viewer</title>'
+  });
+
+  const response = await worker.fetch(
+    new Request('https://example.com/scopes/view-application-stack', {
+      headers: {
+        accept: '*/*'
+      }
+    }),
+    env
+  );
+
+  assert.equal(response.status, 200);
+  assert.match(await response.text(), /viewer/u);
+});
+
 test('Cloudflare worker keeps missing static assets as 404', async () => {
   const response = await worker.fetch(
     new Request('https://example.com/assets/index-missing.js', {

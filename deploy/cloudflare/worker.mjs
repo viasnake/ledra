@@ -34,7 +34,7 @@ const isSpaNavigationRequest = (request, url) => {
     return false;
   }
 
-  return request.headers.get('accept')?.includes('text/html') ?? false;
+  return true;
 };
 
 export default {

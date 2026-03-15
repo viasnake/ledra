@@ -66,12 +66,14 @@ test('node deep link survives reload and preserves return context', async ({ pag
     'href',
     /\/\?q=web/u
   );
+  await page.getByRole('heading', { level: 2, name: /軽量グラフ/u }).scrollIntoViewIfNeeded();
   await expect(page.locator('svg[aria-label$="関係グラフ"]')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.reload();
 
   await expect(page.getByRole('heading', { level: 1, name: 'web-01' })).toBeVisible();
+  await page.getByRole('heading', { level: 2, name: /軽量グラフ/u }).scrollIntoViewIfNeeded();
   await expect(page.locator('svg[aria-label$="関係グラフ"]')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });

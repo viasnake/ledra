@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useDeferredValue, useMemo } from 'react';
 import {
   Link,
   createSearchParams,
@@ -7,12 +7,7 @@ import {
   useSearchParams
 } from 'react-router-dom';
 import { formatAttributeValue, formatEntityTypeLabel, uiCopy } from '../copy';
-import {
-  filterEntitiesForViewer,
-  getEntityRelations,
-  getRelationDegreeMap,
-  getSelectedView
-} from '../index';
+import { filterEntitiesForViewer, getRelationDegreeMap, getSelectedView } from '../index';
 import { useViewerContext } from '../viewer-context';
 
 export const EntityListPage = () => {
@@ -21,11 +16,12 @@ export const EntityListPage = () => {
   const { scopeId } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const searchText = searchParams.get('q') ?? '';
+  const deferredSearchText = useDeferredValue(searchText);
 
   const selectedScope = scopeId ? getSelectedView(bundle.graph, scopeId) : undefined;
   const filteredView = useMemo(
-    () => filterEntitiesForViewer(bundle, searchText, scopeId),
-    [bundle, scopeId, searchText]
+    () => filterEntitiesForViewer(bundle, deferredSearchText, scopeId),
+    [bundle, scopeId, deferredSearchText]
   );
   const relationDegrees = useMemo(() => getRelationDegreeMap(bundle), [bundle]);
   const availableScopes = bundle.graph.views;
@@ -146,8 +142,7 @@ export const EntityListPage = () => {
               </thead>
               <tbody>
                 {filteredView.entities.map((entity) => {
-                  const relationCount =
-                    relationDegrees.get(entity.id) ?? getEntityRelations(bundle, entity.id).length;
+                  const relationCount = relationDegrees.get(entity.id) ?? 0;
                   const params = createSearchParams({
                     ...(scopeId ? { scope: scopeId } : {}),
                     ...(searchText ? { q: searchText } : {})

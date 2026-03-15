@@ -1,9 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Manrope:wght@400;500;600;700;800&display=swap');
 @import 'tailwindcss';
 
 @theme {
-  --font-sans: 'Manrope', 'Segoe UI', sans-serif;
-  --font-mono: 'IBM Plex Mono', monospace;
+  --font-sans: 'Noto Sans JP', 'Segoe UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --color-canvas: #f4f7fb;
   --color-canvas-strong: #e9f1fb;
 }
@@ -25,30 +24,7 @@
     margin: 0;
     font-family: var(--font-sans);
     color: #0f172a;
-    background:
-      radial-gradient(circle at top left, rgba(56, 189, 248, 0.18), transparent 28%),
-      radial-gradient(circle at top right, rgba(45, 212, 191, 0.15), transparent 20%),
-      linear-gradient(180deg, #f8fbff 0%, #f4f7fb 48%, #edf3f9 100%);
-  }
-
-  body::before,
-  body::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-  }
-
-  body::before {
-    background:
-      linear-gradient(rgba(15, 23, 42, 0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(15, 23, 42, 0.045) 1px, transparent 1px);
-    background-size: 72px 72px;
-    mask-image: radial-gradient(circle at center, rgba(0, 0, 0, 0.22), transparent 72%);
-  }
-
-  body::after {
-    background: radial-gradient(circle at center, rgba(255, 255, 255, 0.55), transparent 56%);
+    background: linear-gradient(180deg, #f8fbff 0%, #f3f7fb 100%);
   }
 
   a {
@@ -78,11 +54,11 @@
 
 @layer components {
   .panel {
-    @apply rounded-[30px] border border-white/70 bg-white/84 shadow-[0_28px_100px_rgba(15,23,42,0.08)] backdrop-blur-xl;
+    @apply rounded-[24px] border border-slate-200/80 bg-white shadow-sm;
   }
 
   .graph-shell {
-    @apply rounded-[28px] border border-slate-200/80 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(241,245,249,0.92))] p-5 shadow-[inset_0_1px_0_rgba(255,255,255,0.7)];
+    @apply rounded-[20px] border border-slate-200/80 bg-slate-50/70 p-4;
   }
 
   .eyebrow {
@@ -90,11 +66,11 @@
   }
 
   .primary-button {
-    @apply inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-slate-950/10 transition hover:-translate-y-0.5 hover:bg-sky-700;
+    @apply inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-700;
   }
 
   .secondary-button {
-    @apply inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:text-sky-700;
+    @apply inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700;
   }
 
   .metric-card {
@@ -126,7 +102,7 @@
   }
 
   .status-panel {
-    @apply mx-auto max-w-[760px] rounded-[30px] border border-white/70 bg-white/84 px-8 py-10 text-center shadow-[0_28px_100px_rgba(15,23,42,0.08)] backdrop-blur-xl;
+    @apply mx-auto max-w-[760px] rounded-[24px] border border-slate-200/80 bg-white px-8 py-10 text-center shadow-sm;
   }
 
   .status-panel h1 {
@@ -147,11 +123,5 @@
 
   .data-chip strong {
     @apply mt-2 block text-sm font-semibold text-slate-800;
-  }
-}
-
-@media (max-width: 640px) {
-  .topbar-blur {
-    top: 0;
   }
 }
