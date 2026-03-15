@@ -1,4 +1,4 @@
-import { useDeferredValue, useMemo } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Link,
   createSearchParams,
@@ -10,6 +10,9 @@ import { formatAttributeValue, formatEntityTypeLabel, uiCopy } from '../copy';
 import { filterEntitiesForViewer, getRelationDegreeMap, getSelectedView } from '../index';
 import { useViewerContext } from '../viewer-context';
 
+const TABLE_ROW_HEIGHT = 88;
+const TABLE_OVERSCAN = 8;
+
 export const EntityListPage = () => {
   const { bundle } = useViewerContext();
   const navigate = useNavigate();
@@ -17,6 +20,9 @@ export const EntityListPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const searchText = searchParams.get('q') ?? '';
   const deferredSearchText = useDeferredValue(searchText);
+  const tableScrollerRef = useRef<HTMLDivElement | null>(null);
+  const [scrollTop, setScrollTop] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(640);
 
   const selectedScope = scopeId ? getSelectedView(bundle.graph, scopeId) : undefined;
   const filteredView = useMemo(
@@ -25,6 +31,44 @@ export const EntityListPage = () => {
   );
   const relationDegrees = useMemo(() => getRelationDegreeMap(bundle), [bundle]);
   const availableScopes = bundle.graph.views;
+  const totalRows = filteredView.entities.length;
+
+  useEffect(() => {
+    const element = tableScrollerRef.current;
+    if (!element) {
+      return;
+    }
+
+    const applySize = () => {
+      setViewportHeight(element.clientHeight || 640);
+    };
+
+    applySize();
+
+    const observer = new ResizeObserver(applySize);
+    observer.observe(element);
+
+    return () => {
+      observer.disconnect();
+    };
+  }, [totalRows]);
+
+  useEffect(() => {
+    const element = tableScrollerRef.current;
+    if (!element) {
+      return;
+    }
+
+    element.scrollTop = 0;
+    setScrollTop(0);
+  }, [scopeId, deferredSearchText]);
+
+  const startIndex = Math.max(0, Math.floor(scrollTop / TABLE_ROW_HEIGHT) - TABLE_OVERSCAN);
+  const visibleCount = Math.ceil(viewportHeight / TABLE_ROW_HEIGHT) + TABLE_OVERSCAN * 2;
+  const endIndex = Math.min(totalRows, startIndex + visibleCount);
+  const visibleEntities = filteredView.entities.slice(startIndex, endIndex);
+  const paddingTop = startIndex * TABLE_ROW_HEIGHT;
+  const paddingBottom = Math.max(0, (totalRows - endIndex) * TABLE_ROW_HEIGHT);
 
   if (scopeId && !selectedScope) {
     return (
@@ -106,7 +150,7 @@ export const EntityListPage = () => {
       </section>
 
       <section className="panel overflow-hidden px-0 py-0">
-        {filteredView.entities.length === 0 ? (
+        {totalRows === 0 ? (
           <div className="empty-state-block m-4">
             <p>{uiCopy.status.noResultsBody}</p>
             <button
@@ -118,10 +162,17 @@ export const EntityListPage = () => {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div
+            className="max-h-[68vh] overflow-auto"
+            onScroll={(event) => {
+              setScrollTop(event.currentTarget.scrollTop);
+            }}
+            ref={tableScrollerRef}
+          >
             <table
               className="min-w-full border-separate border-spacing-0"
               aria-label="ノード一覧テーブル"
+              aria-rowcount={totalRows}
             >
               <thead className="bg-slate-50/85 text-left text-xs tracking-[0.12em] text-slate-500 uppercase">
                 <tr>
@@ -141,7 +192,12 @@ export const EntityListPage = () => {
                 </tr>
               </thead>
               <tbody>
-                {filteredView.entities.map((entity) => {
+                {paddingTop > 0 ? (
+                  <tr aria-hidden="true">
+                    <td colSpan={7} style={{ height: `${paddingTop}px`, padding: 0 }} />
+                  </tr>
+                ) : null}
+                {visibleEntities.map((entity) => {
                   const relationCount = relationDegrees.get(entity.id) ?? 0;
                   const params = createSearchParams({
                     ...(scopeId ? { scope: scopeId } : {}),
@@ -153,6 +209,7 @@ export const EntityListPage = () => {
                     <tr
                       key={entity.id}
                       className="border-t border-slate-200/80 text-sm text-slate-700 hover:bg-sky-50/30"
+                      style={{ height: `${TABLE_ROW_HEIGHT}px` }}
                     >
                       <td className="px-4 py-3 align-top">
                         <p className="font-semibold text-slate-900">{entity.title}</p>
@@ -201,6 +258,11 @@ export const EntityListPage = () => {
                     </tr>
                   );
                 })}
+                {paddingBottom > 0 ? (
+                  <tr aria-hidden="true">
+                    <td colSpan={7} style={{ height: `${paddingBottom}px`, padding: 0 }} />
+                  </tr>
+                ) : null}
               </tbody>
             </table>
           </div>
