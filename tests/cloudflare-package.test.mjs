@@ -49,7 +49,7 @@ test('Cloudflare packaging writes viewer assets, bundle, and metadata', () => {
     });
 
     assert.equal(existsSync(join(outDir, 'index.html')), true);
-    assert.equal(existsSync(join(outDir, '_redirects')), true);
+    assert.equal(existsSync(join(outDir, '_redirects')), false);
     assert.equal(existsSync(join(outDir, 'bundle.json')), true);
     assert.equal(existsSync(join(outDir, 'metadata.json')), true);
     assert.equal(result.metadata.metadataSchemaVersion, 2);

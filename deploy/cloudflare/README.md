@@ -87,8 +87,10 @@ See `deploy/cloudflare/metadata-schema.md` for the public deployment metadata co
 ## Required configuration
 
 - `assets.binding = "ASSETS"` is required because `worker.mjs` reads packaged assets directly.
-- `worker.mjs` also provides SPA fallback for extensionless HTML navigation while preserving
+- `worker.mjs` provides SPA fallback for extensionless HTML navigation while preserving
   `/bundle.json`, `/metadata.json`, `/assets/*`, `/api/*`, and `/health` as reserved runtime paths.
+- `_redirects` is useful in generic static hosting, but Cloudflare Workers + Assets packaging removes it and
+  relies on the Worker fallback instead.
 - `metadata.json` must be packaged next to `bundle.json`.
 - Production should use a custom domain via `env.production.routes`.
 - Preview URL comments require a `CLOUDFLARE_ACCOUNT_SUBDOMAIN` variable in the deployment repository.

@@ -212,6 +212,9 @@ export const createCloudflarePackage = ({
   rmSync(resolvedOutDir, { recursive: true, force: true });
   mkdirSync(dirname(resolvedOutDir), { recursive: true });
   cpSync(resolvedViewerDir, resolvedOutDir, { recursive: true });
+  if (existsSync(join(resolvedOutDir, '_redirects'))) {
+    rmSync(join(resolvedOutDir, '_redirects'));
+  }
   cpSync(resolvedBundlePath, join(resolvedOutDir, 'bundle.json'));
   writeFileSync(
     join(resolvedOutDir, 'metadata.json'),
