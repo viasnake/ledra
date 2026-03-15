@@ -6,8 +6,14 @@ import {
   useParams,
   useSearchParams
 } from 'react-router-dom';
+import { GlobalGraphOverview } from '../components/GlobalGraphOverview';
 import { formatAttributeValue, formatEntityTypeLabel, uiCopy } from '../copy';
-import { filterEntitiesForViewer, getRelationDegreeMap, getSelectedView } from '../index';
+import {
+  buildGraphOverviewData,
+  filterEntitiesForViewer,
+  getRelationDegreeMap,
+  getSelectedView
+} from '../index';
 import { useViewerContext } from '../viewer-context';
 
 const TABLE_ROW_HEIGHT = 88;
@@ -30,6 +36,10 @@ export const EntityListPage = () => {
     [bundle, scopeId, deferredSearchText]
   );
   const relationDegrees = useMemo(() => getRelationDegreeMap(bundle), [bundle]);
+  const graphOverviewData = useMemo(
+    () => buildGraphOverviewData(bundle, { maxNodes: 120, maxEdges: 240 }),
+    [bundle]
+  );
   const availableScopes = bundle.graph.views;
   const totalRows = filteredView.entities.length;
 
@@ -85,6 +95,33 @@ export const EntityListPage = () => {
 
   return (
     <div className="space-y-5">
+      <section className="panel px-4 py-5 sm:px-6">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <p className="eyebrow">全体関連グラフ</p>
+            <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">
+              ネットワーク全体のつながり
+            </h2>
+          </div>
+          {selectedScope ? (
+            <span className="rounded-full bg-teal-50 px-3 py-1 text-sm font-medium text-teal-700">
+              {selectedScope.title} を色で強調
+            </span>
+          ) : null}
+        </div>
+        <GlobalGraphOverview
+          data={graphOverviewData}
+          highlightedTypes={selectedScope ? new Set(selectedScope.entityTypes) : undefined}
+          onNodeSelect={(entityId) => {
+            const params = createSearchParams({
+              ...(scopeId ? { scope: scopeId } : {}),
+              ...(searchText ? { q: searchText } : {})
+            }).toString();
+            navigate(`/nodes/${entityId}${params ? `?${params}` : ''}`);
+          }}
+        />
+      </section>
+
       <section className="panel px-4 py-5 sm:px-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>

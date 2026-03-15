@@ -1,12 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  Link,
-  createSearchParams,
-  useNavigate,
-  useParams,
-  useSearchParams
-} from 'react-router-dom';
-import { RelationGraph } from '../components/RelationGraph';
+import { useMemo, useState } from 'react';
+import { Link, createSearchParams, useParams, useSearchParams } from 'react-router-dom';
 import { formatAttributeValue, formatEntityTypeLabel, uiCopy } from '../copy';
 import { getEntityById, getEntityRelations, getSelectedView } from '../index';
 import { useViewerContext } from '../viewer-context';
@@ -14,7 +7,6 @@ import { cn } from '../lib/cn';
 
 export const EntityDetailPage = () => {
   const { bundle } = useViewerContext();
-  const navigate = useNavigate();
   const { entityId } = useParams();
   const [searchParams] = useSearchParams();
   const scopeId = searchParams.get('scope') ?? undefined;
@@ -22,9 +14,6 @@ export const EntityDetailPage = () => {
   const selectedScope = getSelectedView(bundle.graph, scopeId);
   const entity = getEntityById(bundle, entityId);
   const [activeRelationId, setActiveRelationId] = useState<string | undefined>(undefined);
-  const graphSectionRef = useRef<HTMLElement | null>(null);
-  const [graphVisible, setGraphVisible] = useState(false);
-  const [graphEnabled, setGraphEnabled] = useState(false);
 
   const returnPath = selectedScope ? `/scopes/${selectedScope.id}` : '/';
   const returnSearch = createSearchParams({
@@ -39,31 +28,6 @@ export const EntityDetailPage = () => {
     }),
     [relatedRelations]
   );
-
-  useEffect(() => {
-    if (!graphEnabled || !graphSectionRef.current || graphVisible) {
-      return;
-    }
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) {
-            setGraphVisible(true);
-            observer.disconnect();
-            break;
-          }
-        }
-      },
-      { rootMargin: '160px 0px' }
-    );
-
-    observer.observe(graphSectionRef.current);
-
-    return () => {
-      observer.disconnect();
-    };
-  }, [graphEnabled, graphVisible]);
 
   if (!entity) {
     return (
@@ -251,52 +215,6 @@ export const EntityDetailPage = () => {
             );
           })}
         </div>
-      </section>
-
-      <section className="panel defer-content px-4 py-5 sm:px-6" ref={graphSectionRef}>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <p className="eyebrow">可視化</p>
-            <h2 className="mt-2 text-xl font-semibold tracking-tight text-slate-950">軽量グラフ</h2>
-          </div>
-          <button
-            className="secondary-button"
-            onClick={() => {
-              setGraphEnabled((current) => !current);
-              if (graphEnabled) {
-                setGraphVisible(false);
-              }
-            }}
-            type="button"
-          >
-            {graphEnabled ? uiCopy.actions.hideGraph : uiCopy.actions.showGraph}
-          </button>
-        </div>
-
-        {!graphEnabled ? (
-          <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500">
-            必要なときだけグラフを表示できます。
-          </div>
-        ) : graphVisible ? (
-          <RelationGraph
-            className="min-h-[280px]"
-            activeRelationId={activeRelationId}
-            entity={entity}
-            entries={relatedRelations}
-            onActiveRelationChange={setActiveRelationId}
-            onNodeSelect={(nextEntityId) => {
-              const params = createSearchParams({
-                ...(scopeId ? { scope: scopeId } : {}),
-                ...(searchText ? { q: searchText } : {})
-              }).toString();
-              navigate(`/nodes/${nextEntityId}${params ? `?${params}` : ''}`);
-            }}
-          />
-        ) : (
-          <div className="rounded-xl border border-dashed border-slate-300 px-4 py-8 text-sm text-slate-500">
-            グラフはこのセクションが表示された時に読み込みます。
-          </div>
-        )}
       </section>
     </div>
   );

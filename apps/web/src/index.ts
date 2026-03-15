@@ -23,6 +23,28 @@ export type EntityRelationEntry = {
   relatedEntity: EntityRecord | undefined;
 };
 
+export type GraphOverviewNode = {
+  id: string;
+  type: EntityRecord['type'];
+  title: string;
+  degree: number;
+};
+
+export type GraphOverviewEdge = {
+  id: string;
+  sourceId: string;
+  targetId: string;
+  type: string;
+};
+
+export type GraphOverviewData = {
+  nodes: readonly GraphOverviewNode[];
+  edges: readonly GraphOverviewEdge[];
+  totalNodes: number;
+  totalEdges: number;
+  truncated: boolean;
+};
+
 const intersectEntityLists = (
   left: readonly EntityRecord[],
   right: readonly EntityRecord[]
@@ -110,6 +132,54 @@ export const getRelationDegreeMap = (bundle: LedraBundle): ReadonlyMap<string, n
   }
 
   return counts;
+};
+
+export const buildGraphOverviewData = (
+  bundle: LedraBundle,
+  options?: {
+    maxNodes?: number;
+    maxEdges?: number;
+  }
+): GraphOverviewData => {
+  const maxNodes = options?.maxNodes ?? 120;
+  const maxEdges = options?.maxEdges ?? 240;
+  const degrees = getRelationDegreeMap(bundle);
+  const sortedNodes = [...bundle.graph.entities].sort((left, right) => {
+    const degreeDiff = (degrees.get(right.id) ?? 0) - (degrees.get(left.id) ?? 0);
+    if (degreeDiff !== 0) {
+      return degreeDiff;
+    }
+
+    return left.id.localeCompare(right.id);
+  });
+
+  const selectedNodes = sortedNodes.slice(0, maxNodes);
+  const selectedNodeIds = new Set(selectedNodes.map((node) => node.id));
+  const selectedEdges = bundle.graph.relations
+    .filter((relation) => {
+      return selectedNodeIds.has(relation.source.id) && selectedNodeIds.has(relation.target.id);
+    })
+    .slice(0, maxEdges);
+
+  return {
+    nodes: selectedNodes.map((node) => ({
+      id: node.id,
+      title: node.title,
+      type: node.type,
+      degree: degrees.get(node.id) ?? 0
+    })),
+    edges: selectedEdges.map((edge) => ({
+      id: edge.id,
+      sourceId: edge.source.id,
+      targetId: edge.target.id,
+      type: edge.type
+    })),
+    totalNodes: bundle.graph.entities.length,
+    totalEdges: bundle.graph.relations.length,
+    truncated:
+      selectedNodes.length < bundle.graph.entities.length ||
+      selectedEdges.length < bundle.graph.relations.length
+  };
 };
 
 export const loadBundleFromUrl = async (bundlePath = DEFAULT_BUNDLE_PATH): Promise<LedraBundle> => {

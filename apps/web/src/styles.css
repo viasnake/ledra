@@ -61,6 +61,17 @@
     @apply rounded-[20px] border border-slate-200/80 bg-slate-50/70 p-4;
   }
 
+  .graph-canvas-shell {
+    @apply overflow-hidden rounded-[18px] border border-slate-200/80 bg-slate-50/70;
+  }
+
+  .graph-canvas {
+    display: block;
+    width: 100%;
+    height: 320px;
+    touch-action: pan-y;
+  }
+
   .eyebrow {
     @apply text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400;
   }
@@ -123,10 +134,5 @@
 
   .data-chip strong {
     @apply mt-2 block text-sm font-semibold text-slate-800;
-  }
-
-  .defer-content {
-    content-visibility: auto;
-    contain-intrinsic-size: 780px;
   }
 }

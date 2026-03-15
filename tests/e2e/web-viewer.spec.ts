@@ -35,6 +35,7 @@ test('workspace leads into explore and node detail flow', async ({ page }) => {
 
   await expect(page.getByRole('heading', { level: 1, name: /すべてのノード/u })).toBeVisible();
   await expect(page.getByRole('table', { name: /ノード一覧テーブル/u })).toBeVisible();
+  await expect(page.getByLabel('全体関連グラフ')).toBeVisible();
 
   await expectVerticalFlow([page.locator('header').first(), page.locator('section').nth(0)]);
   await expectNoHorizontalOverflow(page);
@@ -66,17 +67,13 @@ test('node deep link survives reload and preserves return context', async ({ pag
     'href',
     /\/\?q=web/u
   );
-  await page.getByRole('heading', { level: 2, name: /軽量グラフ/u }).scrollIntoViewIfNeeded();
-  await page.getByRole('button', { name: /グラフを表示/u }).click();
-  await expect(page.locator('svg[aria-label$="関係グラフ"]')).toBeVisible();
+  await expect(page.getByLabel('Breadcrumb')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 
   await page.reload();
 
   await expect(page.getByRole('heading', { level: 1, name: 'web-01' })).toBeVisible();
-  await page.getByRole('heading', { level: 2, name: /軽量グラフ/u }).scrollIntoViewIfNeeded();
-  await page.getByRole('button', { name: /グラフを表示/u }).click();
-  await expect(page.locator('svg[aria-label$="関係グラフ"]')).toBeVisible();
+  await expect(page.getByLabel('Breadcrumb')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 
