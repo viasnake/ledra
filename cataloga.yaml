@@ -1,0 +1,58 @@
+version: 1
+
+storage:
+  driver: postgres
+  dsn: ${CATALOGA_DATABASE_URL}
+  file_path: .cataloga/canonical-store.json
+
+object_store:
+  driver: local
+  bucket: .cataloga/evidence
+
+sources:
+  - id: git-main
+    type: git
+    enabled: true
+    scope: planned-main
+    poll_mode: full
+    config:
+      ref: main
+      path: packages/sample-data/registry
+
+  - id: aws-prod
+    type: aws
+    enabled: true
+    scope: aws-prod
+    poll_mode: full
+    config:
+      account_id: '123456789012'
+      regions:
+        - ap-northeast-1
+      fixture_path: examples/aws-fixture.json
+
+  - id: onprem-scan-main
+    type: onprem_scan
+    enabled: true
+    scope: onprem-main
+    poll_mode: full
+    config: {}
+
+  - id: manual-main
+    type: manual
+    enabled: true
+    scope: manual-main
+    poll_mode: full
+    config:
+      records:
+        - id: approval-gateway
+          type: service
+          name: approval-gateway
+
+topology:
+  layout_engine: deterministic-grid
+  render_formats:
+    - svg
+    - json
+
+scheduler:
+  full_sync_cron: '0 * * * *'

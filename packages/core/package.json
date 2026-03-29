@@ -12,6 +12,13 @@
   },
   "exports": "./dist/core/src/index.js",
   "dependencies": {
+    "@cataloga/ingest": "0.1.0",
+    "@cataloga/schema": "0.1.0",
+    "@cataloga/source-aws": "0.1.0",
+    "@cataloga/source-contract": "0.1.0",
+    "@cataloga/source-git": "0.1.0",
+    "@cataloga/source-onprem": "0.1.0",
+    "@cataloga/storage": "0.1.0",
     "@cataloga/types": "0.1.0",
     "js-yaml": "^4.1.0"
   }

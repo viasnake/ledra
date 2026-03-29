@@ -1,0 +1,18 @@
+{
+  "name": "@cataloga/query",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/query/src/index.js",
+  "types": "dist/query/src/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "exports": "./dist/query/src/index.js",
+  "dependencies": {
+    "@cataloga/schema": "0.1.0",
+    "@cataloga/storage": "0.1.0"
+  }
+}

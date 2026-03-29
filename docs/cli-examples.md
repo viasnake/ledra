@@ -8,43 +8,49 @@ npm install
 npm run build
 ```
 
-The repository targets Node.js 20.x. `mise.toml` provides that runtime if you use `mise` locally.
-
-Run the CLI through the workspace bin:
+Use the CLI via workspace bin:
 
 ```bash
 npm exec --workspace @cataloga/cli cataloga -- --help
 ```
 
-Assume the registry repo path is `./.local/registry-data`.
+Examples below assume `cataloga.yaml` at repository root.
 
-## Validate registry graph
+## Source management
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- validate --registry ./.local/registry-data
+npm exec --workspace @cataloga/cli cataloga -- source list --config cataloga.yaml
+npm exec --workspace @cataloga/cli cataloga -- source add --config cataloga.yaml --id manual-extra --type manual --scope manual-extra --sourceConfig '{"records":[{"id":"svc-extra","type":"service","name":"svc-extra"}]}'
 ```
 
-## Inspect entities
+## Ingest
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- inspect --registry ./.local/registry-data --query "type=host"
-npm exec --workspace @cataloga/cli cataloga -- inspect --registry ./.local/registry-data --query '{"type":"prefix","attributes":[{"field":"vlanId","operator":"=","value":"vlan-10"}]}'
+npm exec --workspace @cataloga/cli cataloga -- ingest run --config cataloga.yaml
+npm exec --workspace @cataloga/cli cataloga -- ingest run --config cataloga.yaml --source aws-prod
 ```
 
-## Build bundle JSON
+## Snapshots
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- build --registry ./.local/registry-data --out ./dist/bundle.json
+npm exec --workspace @cataloga/cli cataloga -- snapshot list --config cataloga.yaml
 ```
 
-## Export bundle JSON
+## Topology
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- export --registry ./.local/registry-data --out ./dist/bundle.json
+npm exec --workspace @cataloga/cli cataloga -- topology build --config cataloga.yaml
+npm exec --workspace @cataloga/cli cataloga -- topology export --config cataloga.yaml --id snp_effective_global_20260329211658135_site-overview_json --out ./dist/topology.json
 ```
 
-## Run read-only API
+## Drift
 
 ```bash
-npm exec --workspace @cataloga/cli cataloga -- serve --registry ./.local/registry-data --port 3000
+npm exec --workspace @cataloga/cli cataloga -- drift compute --config cataloga.yaml
+```
+
+## API server
+
+```bash
+npm exec --workspace @cataloga/cli cataloga -- serve --config cataloga.yaml --port 3000
 ```

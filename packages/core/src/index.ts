@@ -322,3 +322,11 @@ export const createReadOnlyRepository = (graph: RegistryGraph) => {
 };
 
 export type ReadOnlyRepository = ReturnType<typeof createReadOnlyRepository>;
+
+export {
+  createCatalogaRuntime,
+  defaultConfigPath,
+  loadRuntimeConfig,
+  type CatalogaRuntime,
+  type CatalogaRuntimeConfig
+} from './runtime.js';

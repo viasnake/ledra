@@ -1,86 +1,88 @@
 # API reference
 
-Cataloga exposes a read-only HTTP API. The API never mutates registry data and is intended to sit beside Git-managed source files or generated bundle artifacts.
+Cataloga v1 exposes a read-only API over canonical graph data.
 
 ## Base behavior
 
-- Methods: `GET`, `HEAD`
+- Methods: `GET`
 - Content type: `application/json; charset=utf-8`
-- Writes: not supported
+- Write operations: not supported
 - Health check: `GET /health`
+- Optional auth: set `CATALOGA_API_KEY` and send `x-cataloga-api-key`
 
-## Endpoints
+## Human-facing endpoints
 
-### `GET /api/types`
+### `GET /api/v1/entities`
 
-Returns built-in entity types present in the loaded registry.
+Returns canonical entities.
 
-Example response:
+### `GET /api/v1/entities/{id}`
 
-```json
-["allocation", "dns_record", "host", "prefix", "segment", "service", "site", "vlan"]
-```
+Returns one entity by `entity_id`.
 
-### `GET /api/entities`
+### `GET /api/v1/relations`
 
-Returns all entity records from the normalized registry graph.
+Returns canonical relations.
 
-### `GET /api/entities/{type}/{id}`
+### `GET /api/v1/snapshots`
 
-Returns one entity record or `404` if the entity does not exist.
+Returns planned/observed/effective snapshots.
 
-### `GET /api/relations`
+### `GET /api/v1/drift`
 
-Returns explicit relation records from `registry/relations/`.
+Returns drift findings.
 
-### `GET /api/search`
+### `GET /api/v1/topologies`
 
-Searches entity records.
+Returns topology projections metadata.
 
-Supported query parameters:
+### `GET /api/v1/topologies/{id}`
 
-- `q=type=host`
-- `q=attributes.siteId=site-tokyo`
-- `q={"type":"prefix","attributes":[{"field":"vlanId","operator":"=","value":"vlan-100"}]}`
+Returns one projection payload entry.
 
-### `GET /api/diagnostics`
+### `GET /api/v1/topologies/{id}/svg`
 
-Returns repository diagnostics and validation results.
+Returns SVG projection payload.
 
-Response shape:
+## AI-facing query endpoints
 
-```json
-{
-  "repository": {
-    "readOnly": true,
-    "schemaVersion": 1,
-    "counts": {
-      "entities": 8,
-      "relations": 8,
-      "views": 2,
-      "policies": 1
-    },
-    "sourceFilePaths": ["registry/entities/site/site.yaml"]
-  },
-  "validation": {
-    "ok": true,
-    "diagnostics": []
-  }
-}
-```
+### `GET /api/v1/query/find-assets?q=<text>&type=<entity_type>`
 
-### `GET /api/views`
+Find entities by text/type.
 
-Returns view definitions from `registry/views/`.
+### `GET /api/v1/query/get-neighbors?id=<entity_id>`
 
-### `GET /api/metadata`
+Returns neighboring entities.
 
-Cloudflare deployments may expose deployment metadata from `metadata.json` beside the static bundle.
-This endpoint is optional outside Cloudflare packaging. The current schema exposes a single `repository`
-object plus bundle metadata.
+### `GET /api/v1/query/find-public-exposure`
+
+Returns entities marked as public/internet-facing.
+
+### `GET /api/v1/query/find-ingress-paths?id=<entity_id>`
+
+Returns ingress-neighbor candidates for the entity.
+
+### `GET /api/v1/query/diff-snapshots?left=<snapshot_id>&right=<snapshot_id>`
+
+Returns added/removed entities and relations between snapshots.
+
+### `GET /api/v1/query/get-evidence?subject_id=<entity_or_relation_id>`
+
+Returns evidence references for a subject.
+
+## Query response contract
+
+All query endpoints return:
+
+- `observed_at`
+- `source`
+- `confidence`
+- `evidence_refs`
+- `data`
 
 ## Errors
 
-- `404`: unknown route or missing entity
+- `401`: API key required or invalid
+- `404`: unknown route or missing resource
 - `405`: non-`GET` method
-- `500`: transport or loader failure
+- `500`: internal transport/runtime error

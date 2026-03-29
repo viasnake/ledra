@@ -1,0 +1,17 @@
+{
+  "name": "@cataloga/topology",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/topology/src/index.js",
+  "types": "dist/topology/src/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "exports": "./dist/topology/src/index.js",
+  "dependencies": {
+    "@cataloga/schema": "0.1.0"
+  }
+}

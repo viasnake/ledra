@@ -1,0 +1,18 @@
+{
+  "name": "@cataloga/source-aws",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/source-aws/src/index.js",
+  "types": "dist/source-aws/src/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint src --ext .ts"
+  },
+  "exports": "./dist/source-aws/src/index.js",
+  "dependencies": {
+    "@cataloga/schema": "0.1.0",
+    "@cataloga/source-contract": "0.1.0"
+  }
+}

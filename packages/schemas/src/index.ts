@@ -15,20 +15,36 @@ export const REGISTRY_LAYOUT = {
   policiesDirectory: 'policies'
 } as const;
 
-export const CLI_COMMANDS = ['validate', 'build', 'serve', 'inspect', 'export'] as const;
+export const CLI_COMMANDS = [
+  'source add',
+  'source list',
+  'ingest run',
+  'snapshot list',
+  'topology build',
+  'topology export',
+  'drift compute',
+  'serve'
+] as const;
 
 export const API_ENDPOINTS = [
-  '/api/types',
-  '/api/entities',
-  '/api/entities/{type}/{id}',
-  '/api/relations',
-  '/api/search',
-  '/api/diagnostics',
-  '/api/views'
+  '/api/v1/entities',
+  '/api/v1/entities/{id}',
+  '/api/v1/relations',
+  '/api/v1/snapshots',
+  '/api/v1/drift',
+  '/api/v1/topologies',
+  '/api/v1/topologies/{id}',
+  '/api/v1/topologies/{id}/svg',
+  '/api/v1/query/find-assets',
+  '/api/v1/query/get-neighbors',
+  '/api/v1/query/find-public-exposure',
+  '/api/v1/query/find-ingress-paths',
+  '/api/v1/query/diff-snapshots',
+  '/api/v1/query/get-evidence'
 ] as const;
 
 export const VIEWER_POLICY = {
-  mode: 'static-first',
+  mode: 'api-first',
   writable: false
 } as const;
 

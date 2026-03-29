@@ -17,20 +17,14 @@ if (!existsSync(cliEntrypoint)) {
 }
 
 process.env.CATALOGA_CLI_EMBEDDED = '1';
-const { runCatalogaCli, startCatalogaServe } = await import(pathToFileURL(cliEntrypoint).href);
+const { runCatalogaCli } = await import(pathToFileURL(cliEntrypoint).href);
 const args = process.argv.slice(2);
 
-if (args[0] === 'serve') {
-  try {
-    const { port, registryRoot } = await startCatalogaServe(args);
-    console.log(
-      JSON.stringify({ readOnly: true, port, registryRoot, status: 'Listening' }, null, 2)
-    );
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Unknown serve error';
-    console.error(message);
-    process.exit(1);
-  }
-} else {
-  console.log(runCatalogaCli(args));
+try {
+  const output = await runCatalogaCli(args);
+  process.stdout.write(output);
+} catch (error) {
+  const message = error instanceof Error ? error.message : 'Unknown CLI error';
+  process.stderr.write(`${message}\n`);
+  process.exit(1);
 }

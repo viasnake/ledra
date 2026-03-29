@@ -1,23 +1,82 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
-import { join } from 'node:path';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { createReadOnlyApi } from '../apps/api/dist/apps/api/src/index.js';
 import { runCatalogaCli } from '../apps/cli/dist/apps/cli/src/index.js';
+import { loadRuntimeConfig } from '../packages/core/dist/core/src/index.js';
 
-const registryPath = 'packages/sample-data/registry';
+const createTempRuntime = () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'cataloga-v1-'));
+  const configPath = join(tempDir, 'cataloga.yaml');
+  const storePath = join(tempDir, 'canonical-store.json');
+  const fixturePath = resolve('examples/aws-fixture.json');
+  const registryPath = resolve('packages/sample-data/registry');
 
-const runCli = (args) => {
-  const output = runCatalogaCli(args);
+  const config = [
+    'version: 1',
+    'storage:',
+    '  driver: postgres',
+    `  file_path: ${storePath}`,
+    'object_store:',
+    '  driver: local',
+    '  bucket: local',
+    'sources:',
+    '  - id: git-main',
+    '    type: git',
+    '    enabled: true',
+    '    scope: planned-main',
+    '    poll_mode: full',
+    '    config:',
+    `      path: ${registryPath}`,
+    '      ref: main',
+    '  - id: aws-prod',
+    '    type: aws',
+    '    enabled: true',
+    '    scope: aws-prod',
+    '    poll_mode: full',
+    '    config:',
+    "      account_id: '123456789012'",
+    '      regions: ["ap-northeast-1"]',
+    `      fixture_path: ${fixturePath}`,
+    '  - id: manual-main',
+    '    type: manual',
+    '    enabled: true',
+    '    scope: manual-main',
+    '    poll_mode: full',
+    '    config:',
+    '      records:',
+    '        - id: manual-svc',
+    '          type: service',
+    '          name: manual-svc',
+    '  - id: onprem-main',
+    '    type: onprem_scan',
+    '    enabled: true',
+    '    scope: onprem-main',
+    '    poll_mode: full',
+    '    config: {}'
+  ].join('\n');
+
+  writeFileSync(configPath, `${config}\n`, 'utf8');
+  return {
+    tempDir,
+    configPath,
+    cleanup: () => rmSync(tempDir, { recursive: true, force: true })
+  };
+};
+
+const runCli = async (args) => {
+  const output = await runCatalogaCli(args);
   return JSON.parse(output);
 };
 
-test('workspace cataloga command exposes help output', () => {
-  const output = runCatalogaCli(['--help']);
+test('workspace cataloga command exposes v1 help output', async () => {
+  const output = await runCatalogaCli(['--help']);
 
   assert.match(output, /Usage: cataloga/u);
-  assert.match(output, /validate/u);
+  assert.match(output, /source add/u);
+  assert.match(output, /ingest run/u);
 });
 
 test('web build outputs static viewer assets', () => {
@@ -30,93 +89,119 @@ test('web build outputs static viewer assets', () => {
   assert.ok(assetFiles.some((fileName) => fileName.endsWith('.css')));
 });
 
-test('cataloga validate succeeds with sample registry graph', () => {
-  const result = runCli(['validate', '--registry', registryPath]);
-
-  assert.equal(result.validation.ok, true);
-  assert.equal(result.validation.diagnostics.length, 0);
-  assert.deepEqual(result.diagnostics.counts, {
-    entities: 34,
-    relations: 37,
-    views: 7,
-    policies: 1
-  });
-});
-
-test('cataloga build outputs a static bundle and writes --out', () => {
-  const tempDir = mkdtempSync(join(tmpdir(), 'cataloga-build-'));
-  const outPath = join(tempDir, 'bundle.json');
+test('cataloga source list and ingest run produce snapshots', async () => {
+  const runtime = createTempRuntime();
 
   try {
-    const result = runCli(['build', '--registry', registryPath, '--out', outPath]);
+    const sources = await runCli(['source', 'list', '--config', runtime.configPath]);
+    assert.equal(sources.length, 4);
 
-    assert.equal(result.bundle.kind, 'static-bundle');
-    assert.equal(result.bundle.graph.entities.length, 34);
-    assert.equal(result.bundle.graph.relations.length, 37);
-    assert.equal(result.bundle.graph.views.length, 7);
-    assert.equal(result.bundle.graph.policies.length, 1);
+    const ingest = await runCli(['ingest', 'run', '--config', runtime.configPath]);
+    assert.ok(ingest.run_ids.length >= 4);
+    assert.ok(ingest.snapshot_ids.length >= 4);
 
-    const writtenBundle = JSON.parse(readFileSync(outPath, 'utf8'));
-    assert.equal(writtenBundle.kind, 'static-bundle');
-    assert.equal(writtenBundle.graph.entities.length, 34);
+    const snapshots = await runCli(['snapshot', 'list', '--config', runtime.configPath]);
+    const kinds = new Set(snapshots.map((snapshot) => snapshot.kind));
+    assert.ok(kinds.has('planned'));
+    assert.ok(kinds.has('observed'));
+    assert.ok(kinds.has('effective'));
   } finally {
-    rmSync(tempDir, { recursive: true, force: true });
+    runtime.cleanup();
   }
 });
 
-test('diagnostics include source file paths across entity and registry records', () => {
-  const result = runCli(['validate', '--registry', registryPath]);
-
-  assert.equal(result.diagnostics.sourceFilePaths.length, 79);
-  assert.ok(
-    result.diagnostics.sourceFilePaths.some((entry) => entry.startsWith('registry/entities/'))
-  );
-  assert.ok(
-    result.diagnostics.sourceFilePaths.some((entry) => entry.startsWith('registry/relations/'))
-  );
-  assert.ok(
-    result.diagnostics.sourceFilePaths.some((entry) => entry.startsWith('registry/views/'))
-  );
-  assert.ok(
-    result.diagnostics.sourceFilePaths.some((entry) => entry.startsWith('registry/policies/'))
-  );
-});
-
-test('inspect supports structured query input over attributes', () => {
-  const query = JSON.stringify({ type: 'site', text: 'tokyo' });
-  const result = runCli(['inspect', '--registry', registryPath, '--query', query]);
-
-  assert.equal(result.length, 1);
-  assert.equal(result[0].id, 'site-tokyo-prod');
-});
-
-test('export writes a bundle file when --out is provided', () => {
-  const tempDir = mkdtempSync(join(tmpdir(), 'cataloga-export-'));
-  const outPath = join(tempDir, 'bundle.json');
+test('topology build and export work with generated projections', async () => {
+  const runtime = createTempRuntime();
 
   try {
-    const result = runCli(['export', '--registry', registryPath, '--out', outPath]);
+    await runCli(['ingest', 'run', '--config', runtime.configPath]);
 
-    assert.equal(result.kind, 'static-bundle');
-    const writtenBundle = JSON.parse(readFileSync(outPath, 'utf8'));
-    assert.equal(writtenBundle.kind, 'static-bundle');
-    assert.equal(writtenBundle.graph.views.length, 7);
+    const projections = await runCli(['topology', 'build', '--config', runtime.configPath]);
+    assert.ok(projections.length > 0);
+
+    const target = projections.find((projection) => projection.format === 'json');
+    assert.ok(target);
+
+    const outPath = join(runtime.tempDir, 'topology.json');
+    const exported = await runCli([
+      'topology',
+      'export',
+      '--config',
+      runtime.configPath,
+      '--id',
+      target.topology_id,
+      '--out',
+      outPath
+    ]);
+    assert.equal(exported.ok, true);
+    assert.equal(existsSync(outPath), true);
   } finally {
-    rmSync(tempDir, { recursive: true, force: true });
+    runtime.cleanup();
   }
 });
 
-test('read-only API exposes registry data without mutation paths', () => {
-  const api = createReadOnlyApi(registryPath);
-  const types = api['/api/types']();
-  const search = api['/api/search']('attributes.siteId=site-tokyo-prod');
-  const views = api['/api/views']();
-  const diagnostics = api['/api/diagnostics']();
+test('drift compute returns findings after ingest', async () => {
+  const runtime = createTempRuntime();
 
-  assert.ok(Array.isArray(types));
-  assert.ok(types.includes('site'));
-  assert.equal(search.length, 12);
-  assert.equal(views.length, 7);
-  assert.equal(views[0].kind, 'view');
-  assert.equal(diagnostics.repository.readOnly, true);
+  try {
+    await runCli(['ingest', 'run', '--config', runtime.configPath]);
+    const findings = await runCli(['drift', 'compute', '--config', runtime.configPath]);
+    assert.ok(Array.isArray(findings));
+    assert.ok(findings.length > 0);
+    assert.equal(typeof findings[0].drift_type, 'string');
+  } finally {
+    runtime.cleanup();
+  }
+});
+
+test('read-only API v1 exposes entities, snapshots, drift, and query metadata', async () => {
+  const runtime = createTempRuntime();
+
+  try {
+    const api = createReadOnlyApi(runtime.configPath);
+    await api.ingest.run();
+
+    const entities = api['/api/v1/entities']();
+    const snapshots = api['/api/v1/snapshots']();
+    const drift = api['/api/v1/drift']();
+    const queryResult = api['/api/v1/query/find-public-exposure']();
+
+    assert.ok(Array.isArray(entities));
+    assert.ok(entities.length > 0);
+    assert.ok(Array.isArray(snapshots));
+    assert.ok(snapshots.length > 0);
+    assert.ok(Array.isArray(drift));
+    assert.equal(typeof queryResult.observed_at, 'string');
+    assert.ok(Array.isArray(queryResult.source));
+    assert.equal(typeof queryResult.confidence, 'number');
+    assert.ok(Array.isArray(queryResult.evidence_refs));
+  } finally {
+    runtime.cleanup();
+  }
+});
+
+test('runtime config resolves environment placeholders in dsn', () => {
+  const runtime = createTempRuntime();
+
+  try {
+    const withDsn = [
+      'version: 1',
+      'storage:',
+      '  driver: postgres',
+      '  dsn: ${CATALOGA_DATABASE_URL}',
+      '  file_path: .cataloga/test.json',
+      'object_store:',
+      '  driver: local',
+      '  bucket: local',
+      'sources: []'
+    ].join('\n');
+
+    writeFileSync(runtime.configPath, withDsn, 'utf8');
+    process.env.CATALOGA_DATABASE_URL = 'postgres://user:pass@localhost:5432/cataloga';
+    const config = loadRuntimeConfig(runtime.configPath);
+    assert.equal(config.storage.dsn, 'postgres://user:pass@localhost:5432/cataloga');
+  } finally {
+    delete process.env.CATALOGA_DATABASE_URL;
+    runtime.cleanup();
+  }
 });

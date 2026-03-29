@@ -1,0 +1,141 @@
+{
+  "resources": [
+    {
+      "id": "account-prod",
+      "type": "cloud_account",
+      "name": "prod-account",
+      "account_id": "123456789012",
+      "region": "global",
+      "labels": ["aws", "prod"],
+      "properties": {}
+    },
+    {
+      "id": "ap-northeast-1",
+      "type": "cloud_region",
+      "name": "ap-northeast-1",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws"],
+      "properties": {}
+    },
+    {
+      "id": "vpc-001",
+      "type": "vpc",
+      "name": "prod-main-vpc",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "vpc"],
+      "properties": { "cidr": "10.100.0.0/16" }
+    },
+    {
+      "id": "subnet-a",
+      "type": "subnet",
+      "name": "prod-public-a",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "subnet", "public"],
+      "properties": { "cidr": "10.100.10.0/24" }
+    },
+    {
+      "id": "rtb-main",
+      "type": "route_table",
+      "name": "main-rt",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "route-table"],
+      "properties": {}
+    },
+    {
+      "id": "alb-main",
+      "type": "load_balancer",
+      "name": "prod-alb",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "alb", "internet-facing"],
+      "properties": {}
+    },
+    {
+      "id": "listener-443",
+      "type": "listener",
+      "name": "https-443",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "listener"],
+      "properties": { "port": 443 }
+    },
+    {
+      "id": "tg-web",
+      "type": "target_group",
+      "name": "web-targets",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "target-group"],
+      "properties": {}
+    },
+    {
+      "id": "eni-001",
+      "type": "network_interface",
+      "name": "eni-web-1",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "eni"],
+      "properties": {}
+    },
+    {
+      "id": "i-web-1",
+      "type": "compute_instance",
+      "name": "web-1",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "ec2"],
+      "properties": {}
+    },
+    {
+      "id": "ecs-cluster-main",
+      "type": "container_cluster",
+      "name": "main-cluster",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "ecs"],
+      "properties": {}
+    },
+    {
+      "id": "ecs-service-api",
+      "type": "container_service",
+      "name": "api-service",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "ecs"],
+      "properties": {}
+    },
+    {
+      "id": "ecs-task-1",
+      "type": "container_task",
+      "name": "api-task-1",
+      "account_id": "123456789012",
+      "region": "ap-northeast-1",
+      "labels": ["aws", "ecs"],
+      "properties": {}
+    }
+  ],
+  "relations": [
+    { "id": "account-region", "type": "contains", "from": "account-prod", "to": "ap-northeast-1" },
+    { "id": "region-vpc", "type": "contains", "from": "ap-northeast-1", "to": "vpc-001" },
+    { "id": "vpc-subnet", "type": "contains", "from": "vpc-001", "to": "subnet-a" },
+    { "id": "subnet-rt", "type": "attached_to", "from": "subnet-a", "to": "rtb-main" },
+    { "id": "subnet-alb", "type": "contains", "from": "subnet-a", "to": "alb-main" },
+    { "id": "alb-listener", "type": "contains", "from": "alb-main", "to": "listener-443" },
+    { "id": "listener-tg", "type": "forwards_to", "from": "listener-443", "to": "tg-web" },
+    { "id": "subnet-instance", "type": "contains", "from": "subnet-a", "to": "i-web-1" },
+    { "id": "eni-subnet", "type": "attached_to", "from": "eni-001", "to": "subnet-a" },
+    { "id": "instance-eni", "type": "attached_to", "from": "i-web-1", "to": "eni-001" },
+    {
+      "id": "cluster-service",
+      "type": "contains",
+      "from": "ecs-cluster-main",
+      "to": "ecs-service-api"
+    },
+    { "id": "service-task", "type": "contains", "from": "ecs-service-api", "to": "ecs-task-1" },
+    { "id": "task-eni", "type": "attached_to", "from": "ecs-task-1", "to": "eni-001" }
+  ]
+}

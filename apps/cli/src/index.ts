@@ -8,216 +8,229 @@ declare const process:
       argv: string[];
       env: Record<string, string | undefined>;
       exitCode?: number;
+      stdout: { write(value: string): void };
+      stderr: { write(value: string): void };
     }
   | undefined;
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { buildBundle } from '@cataloga/bundle';
-import { loadRegistryFromFs } from '@cataloga/core';
-import { createHttpEntrypoint } from '@cataloga/api';
-import { searchEntities, type SearchQueryInput } from '@cataloga/search';
-import { validateRegistry } from '@cataloga/validator';
+import { createCatalogaRuntime, defaultConfigPath } from '@cataloga/core';
 
 export const appName = '@cataloga/cli';
-export const cliVersion = '0.1.0';
+export const cliVersion = '1.0.0';
 
-export type CliCommand = 'validate' | 'build' | 'serve' | 'inspect' | 'export';
+type Command = 'source' | 'ingest' | 'snapshot' | 'topology' | 'drift' | 'serve';
 
 type ParsedArgs = {
-  command: CliCommand | undefined;
-  registryRoot?: string;
-  outPath?: string;
-  query?: string;
-  port?: number;
+  command?: Command;
+  subcommand?: string;
+  flags: Record<string, string | true>;
 };
 
-const DEFAULT_REGISTRY_ROOT = 'packages/sample-data/registry';
-const DEFAULT_PORT = 3000;
 const usage = [
-  'Usage: cataloga <validate|build|serve|inspect|export> [--registry <path>] [--out <path>] [--query <text|json>] [--port <number>]',
+  'Usage: cataloga <command> <subcommand> [flags]',
   '',
   'Commands:',
-  '  validate  Validate registry graph and diagnostics',
-  '  build     Build bundle plus diagnostics payload',
-  '  inspect   Search registry entities',
-  '  export    Write bundle JSON only',
-  '  serve     Start read-only API server',
+  '  source add',
+  '  source list',
+  '  ingest run [--source <id>]',
+  '  snapshot list',
+  '  topology build [--view <site-overview|aws-vpc-overview|internet-ingress|service-dependency|drift-view>]',
+  '  topology export --id <topology-id> --out <path>',
+  '  drift compute',
+  '  serve',
   '',
-  'Flags:',
-  '  --registry <path>  Registry root path',
-  '  --out <path>       Output file path for build/export',
-  '  --query <query>    Search query string or JSON object',
-  '  --port <number>    Port for serve',
-  '  --help             Show help',
-  '  --version          Show CLI version'
+  'Global flags:',
+  '  --config <path>   Config file path (default: cataloga.yaml)',
+  '  --help            Show help',
+  '  --version         Show version'
 ].join('\n');
 
-const parsePort = (value: string | undefined): number | undefined => {
-  if (value === undefined) {
-    return undefined;
-  }
-
-  const port = Number.parseInt(value, 10);
-  return Number.isInteger(port) && port > 0 ? port : undefined;
-};
-
 const parseArgs = (args: readonly string[]): ParsedArgs => {
-  const [command, ...rest] = args;
-  let registryRoot: string | undefined;
-  let outPath: string | undefined;
-  let port: number | undefined;
-  const queryParts: string[] = [];
+  const [command, subcommand, ...rest] = args;
+  const flags: Record<string, string | true> = {};
 
   for (let index = 0; index < rest.length; index += 1) {
     const token = rest[index];
-    if (token === undefined) {
+    if (!token || !token.startsWith('--')) {
       continue;
     }
 
-    if (token === '--registry') {
-      registryRoot = rest[index + 1];
-      index += 1;
+    const key = token.slice(2);
+    const value = rest[index + 1];
+    if (!value || value.startsWith('--')) {
+      flags[key] = true;
       continue;
     }
 
-    if (token === '--out') {
-      outPath = rest[index + 1];
-      index += 1;
-      continue;
-    }
-
-    if (token === '--port') {
-      port = parsePort(rest[index + 1]);
-      index += 1;
-      continue;
-    }
-
-    if (token === '--query') {
-      queryParts.push(
-        ...rest.slice(index + 1).filter((value): value is string => value !== undefined)
-      );
-      break;
-    }
-
-    queryParts.push(token);
+    flags[key] = value;
+    index += 1;
   }
 
+  const parsedCommand = command as Command | undefined;
   return {
-    command: command as CliCommand | undefined,
-    ...(registryRoot === undefined ? {} : { registryRoot }),
-    ...(outPath === undefined ? {} : { outPath }),
-    ...(queryParts.length === 0 ? {} : { query: queryParts.join(' ').trim() }),
-    ...(port === undefined ? {} : { port })
+    ...(parsedCommand ? { command: parsedCommand } : {}),
+    ...(subcommand ? { subcommand } : {}),
+    flags
   };
 };
 
-const resolveRegistryRoot = (registryRoot?: string): string =>
-  registryRoot ?? DEFAULT_REGISTRY_ROOT;
+const asString = (value: string | true | undefined): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 
-const writeJsonFile = (filePath: string, value: unknown): void => {
-  const outputPath = resolve(filePath);
-  mkdirSync(dirname(outputPath), { recursive: true });
-  writeFileSync(outputPath, `${JSON.stringify(value, null, 2)}\n`, 'utf8');
+const formatJson = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`;
+
+const writeJson = (filePath: string, value: unknown): void => {
+  const absolutePath = resolve(filePath);
+  mkdirSync(dirname(absolutePath), { recursive: true });
+  writeFileSync(absolutePath, formatJson(value), 'utf8');
 };
 
-const parseSearchQuery = (query: string | undefined): SearchQueryInput => {
-  const normalized = query?.trim() ?? '';
-  if (!normalized) {
-    return '';
+const handleSource = (args: ParsedArgs): string => {
+  const configPath = asString(args.flags.config) ?? defaultConfigPath;
+  const runtime = createCatalogaRuntime(configPath);
+
+  if (args.subcommand === 'list') {
+    return formatJson(runtime.store.sources.list());
   }
 
-  if (normalized.startsWith('{')) {
-    try {
-      return JSON.parse(normalized) as SearchQueryInput;
-    } catch {
-      return normalized;
+  if (args.subcommand === 'add') {
+    const id = asString(args.flags.id);
+    const type = asString(args.flags.type);
+    if (!id || !type) {
+      return formatJson({ error: 'source add requires --id and --type' });
     }
+
+    const configLiteral = asString(args.flags.sourceConfig);
+    const parsedConfig = configLiteral
+      ? (JSON.parse(configLiteral) as Record<string, unknown>)
+      : {};
+    runtime.store.sources.upsert({
+      source_id: id,
+      source_type: type as never,
+      source_instance_id: id,
+      scope: asString(args.flags.scope) ?? id,
+      enabled: asString(args.flags.enabled) === 'false' ? false : true,
+      poll_mode: asString(args.flags.pollMode) === 'incremental' ? 'incremental' : 'full',
+      config: parsedConfig
+    });
+    runtime.store.flush();
+
+    return formatJson({ ok: true, source_id: id });
   }
 
-  return normalized;
+  return usage;
 };
 
-const loadRegistryState = (registryRoot: string) => {
-  const repository = loadRegistryFromFs(registryRoot);
-  return {
-    repository,
-    diagnostics: repository.diagnostics(),
-    validation: validateRegistry(repository)
-  };
-};
-
-export const runCatalogaCli = (args: readonly string[]): string => {
-  if (args.includes('--help') || args.includes('-h')) {
+const handleIngest = async (args: ParsedArgs): Promise<string> => {
+  if (args.subcommand !== 'run') {
     return usage;
   }
 
-  if (args.includes('--version') || args.includes('-v')) {
-    return cliVersion;
+  const configPath = asString(args.flags.config) ?? defaultConfigPath;
+  const runtime = createCatalogaRuntime(configPath);
+  const sourceId = asString(args.flags.source);
+  const result = await runtime.ingest.run(sourceId ? { sourceIds: [sourceId] } : {});
+
+  return formatJson(result);
+};
+
+const handleSnapshot = (args: ParsedArgs): string => {
+  if (args.subcommand !== 'list') {
+    return usage;
   }
 
-  const parsed = parseArgs(args);
-  const registryRoot = resolveRegistryRoot(parsed.registryRoot);
+  const configPath = asString(args.flags.config) ?? defaultConfigPath;
+  const runtime = createCatalogaRuntime(configPath);
+  return formatJson(runtime.store.snapshots.list());
+};
 
-  switch (parsed.command) {
-    case 'validate': {
-      const { diagnostics, validation } = loadRegistryState(registryRoot);
-      return JSON.stringify({ validation, diagnostics }, null, 2);
+const handleTopology = (args: ParsedArgs): string => {
+  const configPath = asString(args.flags.config) ?? defaultConfigPath;
+  const runtime = createCatalogaRuntime(configPath);
+
+  if (args.subcommand === 'build') {
+    return formatJson(runtime.store.topologies.list());
+  }
+
+  if (args.subcommand === 'export') {
+    const topologyId = asString(args.flags.id);
+    const outPath = asString(args.flags.out);
+    if (!topologyId || !outPath) {
+      return formatJson({ error: 'topology export requires --id and --out' });
     }
-    case 'build': {
-      const { repository, diagnostics, validation } = loadRegistryState(registryRoot);
-      const bundle = buildBundle(repository);
-      const payload = { bundle, diagnostics, validation };
 
-      if (parsed.outPath) {
-        writeJsonFile(parsed.outPath, bundle);
-      }
-
-      return JSON.stringify(payload, null, 2);
+    const projection = runtime.store.topologies.get(topologyId);
+    if (!projection) {
+      return formatJson({ error: `topology '${topologyId}' not found` });
     }
-    case 'inspect': {
-      const { repository } = loadRegistryState(registryRoot);
-      const query = parseSearchQuery(parsed.query);
-      return JSON.stringify(searchEntities(query, repository), null, 2);
-    }
-    case 'export': {
-      const { repository } = loadRegistryState(registryRoot);
-      const bundle = buildBundle(repository);
 
-      if (parsed.outPath) {
-        writeJsonFile(parsed.outPath, bundle);
-      }
-
-      return JSON.stringify(bundle, null, 2);
+    if (projection.format === 'json') {
+      writeJson(outPath, JSON.parse(projection.payload));
+    } else {
+      mkdirSync(dirname(resolve(outPath)), { recursive: true });
+      writeFileSync(resolve(outPath), projection.payload, 'utf8');
     }
+
+    return formatJson({ ok: true, topology_id: topologyId, out: outPath });
+  }
+
+  return usage;
+};
+
+const handleDrift = (args: ParsedArgs): string => {
+  if (args.subcommand !== 'compute') {
+    return usage;
+  }
+
+  const configPath = asString(args.flags.config) ?? defaultConfigPath;
+  const runtime = createCatalogaRuntime(configPath);
+  const latest = runtime.store.snapshots.latest('effective');
+  const findings = latest ? runtime.store.drifts.list(latest.snapshot_id) : [];
+  return formatJson(findings);
+};
+
+const handleServe = async (args: ParsedArgs): Promise<string> => {
+  const configPath = asString(args.flags.config) ?? defaultConfigPath;
+  const port = Number.parseInt(asString(args.flags.port) ?? process?.env.PORT ?? '3000', 10);
+  const apiModule = await import('@cataloga/api');
+  const server = apiModule.createHttpEntrypoint(configPath);
+  await new Promise<void>((resolvePromise) => {
+    server.listen(port, '127.0.0.1', () => resolvePromise());
+  });
+
+  return formatJson({ ok: true, port, configPath, status: 'Listening' });
+};
+
+export const runCatalogaCli = async (argv: readonly string[]): Promise<string> => {
+  if (argv.includes('--help') || argv.includes('-h')) {
+    return usage;
+  }
+
+  if (argv.includes('--version') || argv.includes('-v')) {
+    return `${cliVersion}\n`;
+  }
+
+  const args = parseArgs(argv);
+
+  switch (args.command) {
+    case 'source':
+      return handleSource(args);
+    case 'ingest':
+      return handleIngest(args);
+    case 'snapshot':
+      return handleSnapshot(args);
+    case 'topology':
+      return handleTopology(args);
+    case 'drift':
+      return handleDrift(args);
     case 'serve':
-      return JSON.stringify(
-        {
-          readOnly: true,
-          registryRoot,
-          port: parsed.port ?? parsePort(process?.env.PORT) ?? DEFAULT_PORT,
-          status: 'Starting read-only HTTP server via @cataloga/api.'
-        },
-        null,
-        2
-      );
+      return handleServe(args);
     default:
       return usage;
   }
-};
-
-export const startCatalogaServe = async (args: readonly string[]) => {
-  const parsed = parseArgs(args);
-  const registryRoot = resolveRegistryRoot(parsed.registryRoot);
-  const port = parsed.port ?? parsePort(process?.env.PORT) ?? DEFAULT_PORT;
-  const server = await createHttpEntrypoint(registryRoot);
-
-  return new Promise<{ port: number; registryRoot: string }>((resolveServer) => {
-    server.listen(port, '0.0.0.0', () => {
-      resolveServer({ port, registryRoot });
-    });
-  });
 };
 
 const isExecutedAsEntrypoint =
@@ -227,22 +240,15 @@ const isExecutedAsEntrypoint =
   resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 
 if (isExecutedAsEntrypoint) {
-  const args = process.argv.slice(2);
-  const parsed = parseArgs(args);
-
-  if (parsed.command === 'serve') {
-    void startCatalogaServe(args)
-      .then(({ port, registryRoot }) => {
-        console.log(
-          JSON.stringify({ readOnly: true, port, registryRoot, status: 'Listening' }, null, 2)
-        );
-      })
-      .catch((error: unknown) => {
-        const message = error instanceof Error ? error.message : 'Unknown serve error';
-        process.exitCode = 1;
-        console.error(message);
-      });
-  } else {
-    console.log(runCatalogaCli(args));
-  }
+  void runCatalogaCli(process.argv.slice(2))
+    .then((output) => {
+      process.stdout.write(output);
+    })
+    .catch((error: unknown) => {
+      process.exitCode = 1;
+      const message = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`${message}\n`);
+    });
 }
+
+export const loadConfigFromDisk = (path: string): string => readFileSync(resolve(path), 'utf8');
