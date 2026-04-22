@@ -24,7 +24,7 @@ Outcome:
 - tenant revision is defined
 - failure domains are named
 
-TODO:
+Implementation work:
 
 - document component boundaries
 - document desired-state vs operational-state responsibilities
@@ -52,7 +52,7 @@ Delivered in this repository:
 - `docs/schemas/hosting-control-tenant.schema.json`
 - `docs/schemas/hosting-control-override.schema.json`
 
-TODO:
+Implementation work:
 
 - add schema validation tests
 - add example fixture validation
@@ -75,7 +75,7 @@ Outcome:
 - onboarding and deployment state machines are fixed
 - lock, retry, and idempotency strategy is fixed
 
-TODO:
+Implementation work:
 
 - document DB entity list
 - define unique indexes
@@ -99,7 +99,7 @@ Outcome:
 - private and public repo intake flows are fixed
 - onboarding saga is fully defined
 
-TODO:
+Implementation work:
 
 - define GitHub App permissions and webhook events
 - define installation token usage rules
@@ -122,7 +122,7 @@ Outcome:
 - metadata v3 direction is fixed
 - deploy verification and rollback flows are fixed
 
-TODO:
+Implementation work:
 
 - define artifact manifest and retention policy
 - define deployment metadata v3 fields
@@ -146,7 +146,7 @@ Outcome:
 - drift detection rules are fixed
 - runbooks are written
 
-TODO:
+Implementation work:
 
 - define operator read model
 - define audit event taxonomy
@@ -170,7 +170,7 @@ Outcome:
 - plan and entitlement model is defined
 - rollout path to paid GA is documented
 
-TODO:
+Implementation work:
 
 - define account subscription and entitlement primitives
 - define suspend and cancel policy hooks

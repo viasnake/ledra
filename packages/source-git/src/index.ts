@@ -1,5 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { extname, join, resolve } from 'node:path';
+import { extname, join, relative, resolve } from 'node:path';
 import { load as loadYaml } from 'js-yaml';
 import type { CanonicalEntity, CanonicalObservation, CanonicalRelation } from '@cataloga/schema';
 import type {
@@ -49,6 +49,11 @@ const listFiles = (root: string): string[] => {
         : [];
     }
   );
+};
+
+const isInsidePath = (root: string, candidate: string): boolean => {
+  const pathFromRoot = relative(root, candidate);
+  return pathFromRoot === '' || (!pathFromRoot.startsWith('..') && !pathFromRoot.startsWith('/'));
 };
 
 const toEntityType = (value: string): CanonicalEntity['entity_type'] => {
@@ -122,7 +127,10 @@ export class GitSourceAdapter implements SourceAdapter {
     const workspaceRoot = process.cwd();
     const configuredPath = String(context.source.config.path ?? 'packages/sample-data/registry');
     const basePath = resolve(configuredPath);
-    if (!basePath.startsWith(workspaceRoot)) {
+    const allowExternalPaths =
+      context.source.config.allow_external_paths === true ||
+      context.source.config.allow_external_paths === 'true';
+    if (!allowExternalPaths && !isInsidePath(workspaceRoot, basePath)) {
       throw new Error('Git source path must stay inside current workspace.');
     }
     const entitiesPath = join(basePath, 'entities');

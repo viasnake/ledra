@@ -16,6 +16,14 @@ npm exec --workspace @cataloga/cli cataloga -- --help
 
 Examples below assume `cataloga.yaml` at repository root.
 
+## Registry validation and static bundles
+
+```bash
+npm exec --workspace @cataloga/cli cataloga -- validate --registry packages/sample-data/registry
+npm exec --workspace @cataloga/cli cataloga -- inspect --registry packages/sample-data/registry --query "type=host"
+npm exec --workspace @cataloga/cli cataloga -- export --registry packages/sample-data/registry --out .artifacts/bundle.json
+```
+
 ## Source management
 
 ```bash
@@ -53,4 +61,5 @@ npm exec --workspace @cataloga/cli cataloga -- drift compute --config cataloga.y
 
 ```bash
 npm exec --workspace @cataloga/cli cataloga -- serve --config cataloga.yaml --port 3000
+npm exec --workspace @cataloga/cli cataloga -- serve --registry packages/sample-data/registry --port 3000
 ```

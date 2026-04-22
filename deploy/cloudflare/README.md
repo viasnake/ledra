@@ -32,7 +32,7 @@ npm install
 npm run build
 ```
 
-This repository targets Node.js 20.x. `mise.toml` provides that runtime for local packaging flows.
+This repository targets Node.js 24.x. `mise.toml` provides that runtime for local packaging flows.
 
 ### 2) Prepare sample registry data
 

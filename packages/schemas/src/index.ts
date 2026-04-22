@@ -16,6 +16,10 @@ export const REGISTRY_LAYOUT = {
 } as const;
 
 export const CLI_COMMANDS = [
+  'validate',
+  'inspect',
+  'build',
+  'export',
   'source add',
   'source list',
   'ingest run',
@@ -44,7 +48,7 @@ export const API_ENDPOINTS = [
 ] as const;
 
 export const VIEWER_POLICY = {
-  mode: 'api-first',
+  mode: 'static-bundle',
   writable: false
 } as const;
 

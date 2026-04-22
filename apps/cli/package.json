@@ -16,6 +16,8 @@
   "exports": "./dist/apps/cli/src/index.js",
   "dependencies": {
     "@cataloga/api": "0.1.0",
-    "@cataloga/core": "0.1.0"
+    "@cataloga/bundle": "0.1.0",
+    "@cataloga/core": "0.1.0",
+    "@cataloga/validator": "0.1.0"
   }
 }

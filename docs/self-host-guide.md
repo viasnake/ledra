@@ -4,7 +4,7 @@ This guide shows how to run Cataloga against a Git-managed registry repository.
 
 ## Requirements
 
-- Node.js 20.x
+- Node.js 24.x
 - npm
 - Git
 
@@ -49,8 +49,9 @@ npm exec --workspace @cataloga/cli cataloga -- build --registry ./.local/registr
 
 ```bash
 npm exec --workspace @cataloga/cli cataloga -- serve --registry ./.local/registry-data --port 3000
-curl http://127.0.0.1:3000/api/diagnostics
-curl http://127.0.0.1:3000/api/views
+curl http://127.0.0.1:3000/health
+curl http://127.0.0.1:3000/api/v1/entities
+curl http://127.0.0.1:3000/api/v1/query/find-public-exposure
 ```
 
 ## 5) Update loop

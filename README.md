@@ -1,13 +1,22 @@
 # Cataloga
 
-Cataloga is a multi-source infrastructure knowledge platform.
+Cataloga is a read-only infrastructure knowledge platform for Git-managed registry data.
 
-- Ingests data from `git`, `aws`, and on-prem sources.
-- Normalizes all records into a canonical graph model.
-- Persists entities, relations, observations, snapshots, drift findings, and topology projections.
-- Serves read-only `/api/v1` endpoints for humans and AI agents.
+It provides:
 
-This repository now follows `SPEC.md` as the product architecture baseline.
+- a canonical registry loader for entities, relations, views, and policies
+- validation diagnostics for graph integrity and policy rules
+- static bundle export for the React viewer and Cloudflare Workers + Assets
+- an optional read-only `/api/v1` runtime for canonical graph, topology, drift, and query endpoints
+- managed-hosting contracts for a future operator-controlled hosting plane
+
+## Requirements
+
+- Node.js 24.x
+- npm
+- Git
+
+The repository-local `mise.toml` pins Node 24 for local development.
 
 ## Quick Start
 
@@ -15,49 +24,44 @@ This repository now follows `SPEC.md` as the product architecture baseline.
 mise install
 npm install
 npm run build
-npm exec --workspace @cataloga/cli cataloga -- ingest run --config cataloga.yaml
-npm exec --workspace @cataloga/cli cataloga -- serve --config cataloga.yaml --port 3000
+npm exec --workspace @cataloga/cli cataloga -- validate --registry packages/sample-data/registry
+npm exec --workspace @cataloga/cli cataloga -- export --registry packages/sample-data/registry --out .artifacts/bundle.json
+```
+
+Run the read-only API against a registry tree:
+
+```bash
+npm exec --workspace @cataloga/cli cataloga -- serve --registry packages/sample-data/registry --port 3000
 ```
 
 Open:
 
-- `http://localhost:3000/api/v1/entities`
-- `http://localhost:3000/api/v1/snapshots`
-- `http://localhost:3000/api/v1/drift`
+- `http://127.0.0.1:3000/health`
+- `http://127.0.0.1:3000/api/v1/entities`
+- `http://127.0.0.1:3000/api/v1/snapshots`
+- `http://127.0.0.1:3000/api/v1/query/find-public-exposure`
 
-## PostgreSQL backend mode
+## CLI Commands
 
-`storage.driver: postgres` supports two operation modes:
-
-- `file_path` mode (default local development fallback): uses file-backed canonical store.
-- `dsn` mode: when `storage.dsn` is resolved to a concrete value, Cataloga uses PostgreSQL via `psql`.
-
-Example:
-
-```yaml
-storage:
-  driver: postgres
-  dsn: ${CATALOGA_DATABASE_URL}
-```
-
-`CATALOGA_DATABASE_URL` is resolved at runtime from environment variables.
-
-## Required CLI Commands
-
-- `cataloga source add`
-- `cataloga source list`
-- `cataloga ingest run`
-- `cataloga ingest run --source <id>`
-- `cataloga snapshot list`
-- `cataloga topology build`
-- `cataloga topology export`
-- `cataloga drift compute`
-- `cataloga serve`
+- `cataloga validate --registry <path>`
+- `cataloga inspect --registry <path> [--query type=<entity_type>|id=<id>|tag=<tag>]`
+- `cataloga build --registry <path> --out <path>`
+- `cataloga export --registry <path> --out <path>`
+- `cataloga source add --config <path> --id <id> --type <type>`
+- `cataloga source list --config <path>`
+- `cataloga ingest run --config <path> [--source <id>]`
+- `cataloga snapshot list --config <path>`
+- `cataloga topology build --config <path>`
+- `cataloga topology export --config <path> --id <topology-id> --out <path>`
+- `cataloga drift compute --config <path>`
+- `cataloga serve --config <path> --port <port>`
+- `cataloga serve --registry <path> --port <port>`
 
 ## API v1
 
 Human-facing:
 
+- `GET /health`
 - `GET /api/v1/entities`
 - `GET /api/v1/entities/{id}`
 - `GET /api/v1/relations`
@@ -69,34 +73,32 @@ Human-facing:
 
 AI-facing:
 
-- `GET /api/v1/query/find-assets`
-- `GET /api/v1/query/get-neighbors`
+- `GET /api/v1/query/find-assets?q=<text>&type=<entity_type>`
+- `GET /api/v1/query/get-neighbors?id=<entity_id>`
 - `GET /api/v1/query/find-public-exposure`
-- `GET /api/v1/query/find-ingress-paths`
-- `GET /api/v1/query/diff-snapshots`
-- `GET /api/v1/query/get-evidence`
+- `GET /api/v1/query/find-ingress-paths?id=<entity_id>`
+- `GET /api/v1/query/diff-snapshots?left=<snapshot_id>&right=<snapshot_id>`
+- `GET /api/v1/query/get-evidence?subject_id=<entity_or_relation_id>`
 
-All query responses include:
+Query responses include `observed_at`, `source`, `confidence`, `evidence_refs`, and `data`.
 
-- `observed_at`
-- `source`
-- `confidence`
-- `evidence_refs`
+## Deployment Paths
 
-## Monorepo Layout (v1)
+- Static viewer bundle: `docs/read-only-and-delivery-model.md`
+- Cloudflare Workers + Assets: `deploy/cloudflare/README.md`
+- Docker read-only API: `deploy/docker/README.md`
+- Managed-hosting architecture: `docs/managed-hosting-architecture.md`
 
-- `packages/schema`
-- `packages/storage`
-- `packages/source-contract`
-- `packages/source-git`
-- `packages/source-aws`
-- `packages/source-onprem`
-- `packages/ingest`
-- `packages/identity`
-- `packages/query`
-- `packages/topology`
-- `packages/drift`
-- `apps/api`
-- `apps/web`
-- `apps/cli`
-- `apps/worker`
+## Monorepo Layout
+
+- `apps/cli`: CLI entrypoint
+- `apps/api`: read-only HTTP API
+- `apps/web`: static React viewer
+- `apps/worker`: ingest worker
+- `packages/core`: registry loader and runtime assembly
+- `packages/validator`: registry validation
+- `packages/bundle`: static bundle builder
+- `packages/search`: viewer search helpers
+- `packages/managed-hosting`: managed-hosting contracts and helpers
+- `deploy/cloudflare`: Cloudflare packaging/runtime example
+- `deploy/docker`: Docker API example

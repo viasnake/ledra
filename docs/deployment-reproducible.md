@@ -2,7 +2,7 @@
 
 This document ties the runnable examples under `deploy/` to the Git-native registry workflow.
 
-For local setup, this repository targets Node.js 20.x. Run `mise install` before the commands below if you use `mise`.
+For local setup, this repository targets Node.js 24.x. Run `mise install` before the commands below if you use `mise`.
 
 ## Shared principle
 

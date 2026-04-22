@@ -17,7 +17,7 @@
     "@cataloga/schemas": "0.1.0",
     "@cataloga/search": "0.1.0",
     "@cataloga/types": "0.1.0",
-    "@tailwindcss/vite": "^4.2.1",
+    "@tailwindcss/vite": "^4.2.4",
     "clsx": "^2.1.1",
     "d3-force": "^3.0.0",
     "react": "^18.3.1",
@@ -25,13 +25,13 @@
     "react-force-graph-2d": "^1.29.1",
     "react-router-dom": "^6.30.0",
     "tailwind-merge": "^3.5.0",
-    "tailwindcss": "^4.2.1"
+    "tailwindcss": "^4.2.4"
   },
   "devDependencies": {
     "@types/d3-force": "^3.0.10",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.3",
-    "vite": "^5.4.10"
+    "@vitejs/plugin-react": "^6.0.1",
+    "vite": "^8.0.9"
   }
 }

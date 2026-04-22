@@ -89,6 +89,35 @@ test('web build outputs static viewer assets', () => {
   assert.ok(assetFiles.some((fileName) => fileName.endsWith('.css')));
 });
 
+test('registry validate and export commands support static delivery', async () => {
+  const tempDir = mkdtempSync(join(tmpdir(), 'cataloga-bundle-'));
+
+  try {
+    const validation = await runCli(['validate', '--registry', 'packages/sample-data/registry']);
+    assert.equal(validation.ok, true);
+    assert.deepEqual(validation.diagnostics, []);
+
+    const outPath = join(tempDir, 'bundle.json');
+    const exported = await runCli([
+      'export',
+      '--registry',
+      'packages/sample-data/registry',
+      '--out',
+      outPath
+    ]);
+
+    assert.equal(exported.ok, true);
+    assert.equal(existsSync(outPath), true);
+
+    const bundle = JSON.parse(readFileSync(outPath, 'utf8'));
+    assert.equal(bundle.kind, 'static-bundle');
+    assert.equal(bundle.graph.kind, 'registry-graph');
+    assert.equal(bundle.diagnostics.counts.entities, 34);
+  } finally {
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+});
+
 test('cataloga source list and ingest run produce snapshots', async () => {
   const runtime = createTempRuntime();
 
