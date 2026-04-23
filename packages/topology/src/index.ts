@@ -66,7 +66,7 @@ export const renderTopologySvg = (payload: TopologyJson): string => {
     .join('');
 
   const edgeLines = payload.edges
-    .map((edge, index) => {
+    .map((edge) => {
       const fromIndex = payload.nodes.findIndex((node) => node.id === edge.from);
       const toIndex = payload.nodes.findIndex((node) => node.id === edge.to);
       const y1 = 62 + Math.max(0, fromIndex) * nodeSpacing;

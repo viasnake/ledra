@@ -4,10 +4,10 @@ services:
       context: ../..
       dockerfile: deploy/docker/Dockerfile
     environment:
-      PORT: "8080"
-      CATALOGA_REGISTRY_PATH: /data/registry
+      PORT: '8080'
+      CATALOGA_REGISTRY_PATH: /app/registry
     ports:
-      - "8080:8080"
+      - '8080:8080'
     volumes:
-      - ../../examples/minimal-registry:/data/registry:ro
+      - ../../examples/minimal-registry:/app/registry:ro
     restart: unless-stopped
