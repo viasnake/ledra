@@ -35,7 +35,7 @@ test('workspace leads into explore and node detail flow', async ({ page }) => {
 
   await expect(page.getByRole('heading', { level: 1, name: /すべてのノード/u })).toBeVisible();
   await expect(page.getByRole('table', { name: /ノード一覧テーブル/u })).toBeVisible();
-  await expect(page.getByLabel('全体関連グラフ')).toBeVisible();
+  await expect(page.getByLabel('スコープ')).toBeVisible();
 
   await expectVerticalFlow([page.locator('header').first(), page.locator('section').nth(0)]);
   await expectNoHorizontalOverflow(page);
@@ -46,8 +46,8 @@ test('workspace leads into explore and node detail flow', async ({ page }) => {
 
   const firstRow = page.locator('tbody tr').first();
   const firstRowTitle =
-    (await firstRow.locator('td').first().locator('p').first().textContent())?.trim() ?? '';
-  await firstRow.getByRole('link', { name: /詳細/u }).click();
+    (await firstRow.locator('td').first().locator('a').first().textContent())?.trim() ?? '';
+  await firstRow.getByRole('link', { name: firstRowTitle }).click();
 
   await expect(page).toHaveURL(/\/nodes\//u);
   await expect(page.getByRole('heading', { level: 1, name: firstRowTitle })).toBeVisible();
@@ -74,6 +74,15 @@ test('node deep link survives reload and preserves return context', async ({ pag
 
   await expect(page.getByRole('heading', { level: 1, name: 'web-01' })).toBeVisible();
   await expect(page.getByLabel('Breadcrumb')).toBeVisible();
+  await expectNoHorizontalOverflow(page);
+});
+
+test('global graph page is available separately', async ({ page }) => {
+  await page.goto('/graph?scope=view-application-stack');
+
+  await expect(page.getByRole('heading', { level: 1, name: '全体グラフ' })).toBeVisible();
+  await expect(page.getByLabel('グラフスコープ')).toBeVisible();
+  await expect(page.getByLabel('全体関連グラフ')).toBeVisible();
   await expectNoHorizontalOverflow(page);
 });
 

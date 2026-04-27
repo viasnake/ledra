@@ -13,16 +13,17 @@ const entityTypeLabels: Record<BuiltinEntityTypeName, string> = {
 
 export const uiCopy = {
   brand: {
-    title: 'Cataloga',
-    subtitle: 'ネットワーク・レジストリ・ビューア'
+    title: 'Cataloga'
   },
   nav: {
     list: '一覧',
+    graph: '全体グラフ',
     scopes: 'スコープ'
   },
   routes: {
     overview: '一覧',
     explore: '一覧',
+    graph: '全体グラフ',
     scopes: 'スコープ'
   },
   actions: {

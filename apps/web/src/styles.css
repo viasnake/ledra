@@ -14,7 +14,7 @@
 
   html {
     min-height: 100%;
-    background: #edf4fb;
+    background: #f1f5f9;
     color-scheme: light;
   }
 
@@ -24,7 +24,7 @@
     margin: 0;
     font-family: var(--font-sans);
     color: #0f172a;
-    background: linear-gradient(180deg, #f8fbff 0%, #f3f7fb 100%);
+    background: #f1f5f9;
   }
 
   a {
@@ -54,15 +54,15 @@
 
 @layer components {
   .panel {
-    @apply rounded-[24px] border border-slate-200/80 bg-white shadow-sm;
+    @apply rounded-lg border border-slate-200 bg-white shadow-sm;
   }
 
   .graph-shell {
-    @apply rounded-[20px] border border-slate-200/80 bg-slate-50/70 p-4;
+    @apply rounded-lg border border-slate-200 bg-slate-50 p-3;
   }
 
   .graph-canvas-shell {
-    @apply overflow-hidden rounded-[18px] border border-slate-200/80 bg-slate-50/70;
+    @apply overflow-hidden rounded-md border border-slate-200 bg-slate-50;
   }
 
   .graph-canvas {
@@ -73,19 +73,19 @@
   }
 
   .eyebrow {
-    @apply text-[11px] font-semibold uppercase tracking-[0.28em] text-slate-400;
+    @apply text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400;
   }
 
   .primary-button {
-    @apply inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition hover:bg-sky-700;
+    @apply inline-flex items-center justify-center rounded-md bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-sky-700;
   }
 
   .secondary-button {
-    @apply inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700;
+    @apply inline-flex items-center justify-center rounded-md border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700;
   }
 
   .metric-card {
-    @apply rounded-[24px] border border-slate-200/80 bg-slate-50/78 px-5 py-5;
+    @apply rounded-lg border border-slate-200 bg-white px-4 py-3;
   }
 
   .metric-card span {
@@ -93,39 +93,39 @@
   }
 
   .metric-card strong {
-    @apply mt-3 block text-3xl font-semibold tracking-tight text-slate-950;
+    @apply mt-2 block text-2xl font-semibold tracking-tight text-slate-950;
   }
 
   .metric-card p {
-    @apply mt-3 text-sm leading-7 text-slate-600;
+    @apply mt-2 text-xs leading-5 text-slate-600;
   }
 
   .scope-card {
-    @apply flex items-start justify-between gap-3 rounded-[24px] border border-slate-200/80 bg-slate-50/78 px-4 py-4 transition hover:border-sky-200 hover:bg-white;
+    @apply flex items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 transition hover:border-sky-200 hover:bg-white;
   }
 
   .field-input {
-    @apply h-14 w-full rounded-[20px] border border-slate-200 bg-white px-4 text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100;
+    @apply h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none transition placeholder:text-slate-400 focus:border-sky-300 focus:ring-4 focus:ring-sky-100;
   }
 
   .empty-state-block {
-    @apply rounded-[28px] border border-dashed border-slate-300 bg-slate-50/70 px-6 py-8 text-sm leading-7 text-slate-600;
+    @apply rounded-lg border border-dashed border-slate-300 bg-slate-50 px-5 py-6 text-sm leading-6 text-slate-600;
   }
 
   .status-panel {
-    @apply mx-auto max-w-[760px] rounded-[24px] border border-slate-200/80 bg-white px-8 py-10 text-center shadow-sm;
+    @apply mx-auto max-w-[720px] rounded-lg border border-slate-200 bg-white px-6 py-8 text-center shadow-sm;
   }
 
   .status-panel h1 {
-    @apply mt-3 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl;
+    @apply mt-3 text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl;
   }
 
   .status-panel p:last-of-type {
-    @apply mt-4 text-base leading-8 text-slate-600;
+    @apply mt-3 text-sm leading-6 text-slate-600;
   }
 
   .data-chip {
-    @apply rounded-[22px] border border-slate-200/80 bg-slate-50/80 px-4 py-3;
+    @apply rounded-lg border border-slate-200 bg-slate-50 px-3 py-2;
   }
 
   .data-chip span {

@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { Route, Routes } from 'react-router-dom';
-import type { CatalogaBundle } from '@cataloga/types';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { AppLayout } from './components/AppLayout';
 import { DEFAULT_BUNDLE_PATH, loadBundleFromUrl } from './index';
 import { EntityDetailPage } from './routes/EntityDetailPage';
 import { EntityListPage } from './routes/EntityListPage';
+import { GlobalGraphPage } from './routes/GlobalGraphPage';
 import { NotFoundPage } from './routes/NotFoundPage';
-import { ViewerProvider } from './viewer-context';
+import { uiCopy } from './copy';
 import './styles.css';
+import { ViewerProvider } from './viewer-context';
+import type { CatalogaBundle } from '@cataloga/types';
 
 type AppState =
   | {
@@ -51,11 +53,11 @@ const App = () => {
 
   if (state.status === 'loading') {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-[1040px] items-center px-4 py-10 sm:px-6 lg:px-8">
+      <main className="flex min-h-screen items-center justify-center px-4 py-6">
         <section className="status-panel">
           <p className="eyebrow">loading</p>
-          <h1>Cataloga viewer</h1>
-          <p>Loading published bundle from {bundlePath}.</p>
+          <h1>{uiCopy.status.loadingTitle}</h1>
+          <p>{uiCopy.status.loadingBody}</p>
         </section>
       </main>
     );
@@ -63,10 +65,10 @@ const App = () => {
 
   if (state.status === 'error') {
     return (
-      <main className="mx-auto flex min-h-screen w-full max-w-[1040px] items-center px-4 py-10 sm:px-6 lg:px-8">
-        <section className="status-panel border-rose-200/80 bg-rose-50/80">
-          <p className="eyebrow text-rose-700">bundle load error</p>
-          <h1>Unable to load Cataloga bundle</h1>
+      <main className="flex min-h-screen items-center justify-center px-4 py-6">
+        <section className="status-panel border-rose-200 bg-rose-50">
+          <p className="eyebrow text-rose-700">bundle error</p>
+          <h1>{uiCopy.status.errorTitle}</h1>
           <p>{state.message}</p>
         </section>
       </main>
@@ -78,6 +80,8 @@ const App = () => {
       <Routes>
         <Route element={<AppLayout />}>
           <Route index element={<EntityListPage />} />
+          <Route path="explore" element={<Navigate replace to="/" />} />
+          <Route path="graph" element={<GlobalGraphPage />} />
           <Route path="scopes/:scopeId" element={<EntityListPage />} />
           <Route path="nodes/:entityId" element={<EntityDetailPage />} />
           <Route path="*" element={<NotFoundPage />} />

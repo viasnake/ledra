@@ -65,7 +65,8 @@ const usage = [
 ].join('\n');
 
 const parseArgs = (args: readonly string[]): ParsedArgs => {
-  const [command, maybeSubcommand, ...tail] = args;
+  const normalizedArgs = args[0] === 'cataloga' ? args.slice(1) : args;
+  const [command, maybeSubcommand, ...tail] = normalizedArgs;
   const subcommand = maybeSubcommand?.startsWith('--') ? undefined : maybeSubcommand;
   const rest = maybeSubcommand?.startsWith('--') ? [maybeSubcommand, ...tail] : tail;
   const flags: Record<string, string | true> = {};

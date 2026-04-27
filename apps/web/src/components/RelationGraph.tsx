@@ -22,22 +22,65 @@ type GraphNode = {
   relationTypes: string[];
 };
 
-const graphPalette = ['#0f766e', '#2563eb', '#0f766e', '#9333ea', '#ea580c', '#0284c7'];
+const graphPalette = ['#0f766e', '#2563eb', '#9333ea', '#ea580c', '#0284c7', '#4f46e5'];
 
 const getTypeColor = (type: string) => {
   const hash = Array.from(type).reduce((acc, character) => acc + character.charCodeAt(0), 0);
-  return graphPalette[hash % graphPalette.length];
+  return graphPalette[hash % graphPalette.length] ?? '#2563eb';
 };
 
-const clampEntries = (entries: readonly GraphNode[]) => entries.slice(0, 4);
+const clampEntries = (entries: readonly GraphNode[]) => entries.slice(0, 6);
 
-const distributeY = (index: number, total: number) => {
-  if (total <= 1) {
-    return 240;
-  }
+const RelationNodeCard = ({
+  node,
+  activeRelationId,
+  onActiveRelationChange,
+  onNodeSelect
+}: {
+  node: GraphNode;
+  activeRelationId?: string | undefined;
+  onActiveRelationChange?: (relationId?: string) => void;
+  onNodeSelect?: (entityId: string) => void;
+}) => {
+  const firstRelationId = node.relationIds[0];
+  const color = getTypeColor(node.relationTypes[0] ?? node.type);
+  const isActive =
+    activeRelationId !== undefined &&
+    node.relationIds.some((relationId) => relationId === activeRelationId);
+  const relationLabel = node.relationTypes.join(' / ');
 
-  const step = 300 / (total - 1);
-  return 90 + index * step;
+  return (
+    <button
+      className={cn(
+        'w-full rounded-md border bg-white px-3 py-2 text-left shadow-sm transition hover:border-sky-300 hover:bg-sky-50/40',
+        isActive ? 'border-sky-300 bg-sky-50/70' : 'border-slate-200'
+      )}
+      onBlur={() => onActiveRelationChange?.(undefined)}
+      onClick={() => onNodeSelect?.(node.id)}
+      onFocus={() => onActiveRelationChange?.(firstRelationId)}
+      onMouseEnter={() => onActiveRelationChange?.(firstRelationId)}
+      onMouseLeave={() => onActiveRelationChange?.(undefined)}
+      type="button"
+    >
+      <div className="flex items-start gap-3">
+        <span
+          className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ backgroundColor: color }}
+        />
+        <span className="min-w-0">
+          <span className="block break-words text-sm font-semibold leading-5 text-slate-950">
+            {node.title}
+          </span>
+          <span className="mt-1 block text-xs leading-5 text-slate-500">
+            {formatEntityTypeLabel(node.type)}
+          </span>
+          <span className="mt-1 block break-words font-mono text-[11px] leading-4 text-slate-500">
+            {relationLabel}
+          </span>
+        </span>
+      </div>
+    </button>
+  );
 };
 
 export const RelationGraph = ({
@@ -48,7 +91,7 @@ export const RelationGraph = ({
   onNodeSelect,
   className
 }: RelationGraphProps) => {
-  const { incomingNodes, outgoingNodes } = useMemo(() => {
+  const { incomingNodes, outgoingNodes, hiddenCount } = useMemo(() => {
     const groupedNodes = entries.reduce<Map<string, GraphNode>>((map, entry) => {
       const fallbackId =
         entry.direction === 'outgoing' ? entry.relation.target.id : entry.relation.source.id;
@@ -76,191 +119,100 @@ export const RelationGraph = ({
       return map;
     }, new Map());
 
+    const allIncoming = Array.from(groupedNodes.values()).filter(
+      (node) => node.direction === 'incoming'
+    );
+    const allOutgoing = Array.from(groupedNodes.values()).filter(
+      (node) => node.direction === 'outgoing'
+    );
+
     return {
-      incomingNodes: clampEntries(
-        Array.from(groupedNodes.values()).filter((node) => node.direction === 'incoming')
-      ),
-      outgoingNodes: clampEntries(
-        Array.from(groupedNodes.values()).filter((node) => node.direction === 'outgoing')
-      )
+      incomingNodes: clampEntries(allIncoming),
+      outgoingNodes: clampEntries(allOutgoing),
+      hiddenCount:
+        Math.max(0, allIncoming.length - clampEntries(allIncoming).length) +
+        Math.max(0, allOutgoing.length - clampEntries(allOutgoing).length)
     };
   }, [entries]);
 
+  const renderColumn = (title: string, nodes: readonly GraphNode[]) => (
+    <section className="min-w-0">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h4 className="text-sm font-semibold text-slate-700">{title}</h4>
+        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-500">
+          {nodes.length}
+        </span>
+      </div>
+      {nodes.length > 0 ? (
+        <div className="space-y-2">
+          {nodes.map((node) => (
+            <RelationNodeCard
+              key={`${node.direction}-${node.id}`}
+              node={node}
+              {...(activeRelationId !== undefined ? { activeRelationId } : {})}
+              {...(onActiveRelationChange ? { onActiveRelationChange } : {})}
+              {...(onNodeSelect ? { onNodeSelect } : {})}
+            />
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-md border border-dashed border-slate-300 bg-white px-3 py-4 text-sm text-slate-500">
+          {uiCopy.status.noRelationsBody}
+        </div>
+      )}
+    </section>
+  );
+
   return (
     <div className={cn('graph-shell', className)}>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="eyebrow">{uiCopy.labels.graph}</p>
-          <h3 className="mt-2 text-lg font-semibold tracking-tight text-slate-950">
+          <h3 className="mt-1 text-lg font-semibold tracking-tight text-slate-950">
             {entity.title}
           </h3>
         </div>
         <div className="flex flex-wrap justify-end gap-2 text-xs font-medium text-slate-600">
-          <span className="inline-flex items-center gap-2 rounded-full bg-teal-50 px-3 py-1 text-teal-800">
-            <span className="h-2 w-2 rounded-full bg-teal-600" />
+          <span className="rounded-md bg-teal-50 px-2.5 py-1 text-teal-800">
             {uiCopy.labels.incoming}
           </span>
-          <span className="inline-flex items-center gap-2 rounded-full bg-blue-50 px-3 py-1 text-blue-800">
-            <span className="h-2 w-2 rounded-full bg-blue-600" />
+          <span className="rounded-md bg-blue-50 px-2.5 py-1 text-blue-800">
             {uiCopy.labels.outgoing}
           </span>
         </div>
       </div>
 
-      <svg
-        aria-label={`${entity.title} の関係グラフ`}
-        className="h-[260px] w-full"
-        viewBox="0 0 820 480"
-      >
-        <defs>
-          <radialGradient id="cataloga-center-glow" cx="50%" cy="50%" r="70%">
-            <stop offset="0%" stopColor="#dbeafe" stopOpacity="0.95" />
-            <stop offset="100%" stopColor="#bfdbfe" stopOpacity="0.15" />
-          </radialGradient>
-        </defs>
+      <div className="grid gap-3 xl:grid-cols-[minmax(220px,1fr)_220px_minmax(220px,1fr)]">
+        {renderColumn(uiCopy.labels.incoming, incomingNodes)}
 
-        <g opacity="0.9">
-          <circle cx="410" cy="240" r="102" fill="url(#cataloga-center-glow)" />
-          <circle cx="410" cy="240" r="124" fill="none" stroke="#dbeafe" strokeDasharray="6 10" />
-        </g>
+        <section className="flex min-w-0 items-center">
+          <div className="w-full rounded-md border border-slate-900 bg-slate-950 px-4 py-4 text-center text-white shadow-sm">
+            <p className="text-xs font-semibold text-slate-300">
+              {formatEntityTypeLabel(entity.type)}
+            </p>
+            <p className="mt-2 break-words text-base font-semibold leading-6">{entity.title}</p>
+            <p className="mt-2 break-all font-mono text-[11px] leading-4 text-slate-300">
+              {entity.id}
+            </p>
+            <p className="mt-3 rounded-md bg-white/10 px-2 py-1 text-xs font-semibold text-slate-200">
+              {entries.length} relations
+            </p>
+          </div>
+        </section>
 
-        {[...incomingNodes, ...outgoingNodes].map((node, index) => {
-          const incomingIndex = incomingNodes.findIndex(
-            (candidate) => candidate.id === node.id && candidate.direction === node.direction
-          );
-          const outgoingIndex = outgoingNodes.findIndex(
-            (candidate) => candidate.id === node.id && candidate.direction === node.direction
-          );
-          const isIncoming = node.direction === 'incoming';
-          const x = isIncoming ? 155 : 665;
-          const y = distributeY(
-            isIncoming ? incomingIndex : outgoingIndex,
-            isIncoming ? incomingNodes.length : outgoingNodes.length
-          );
-          const edgeColor = getTypeColor(node.relationTypes[0] ?? node.type);
-          const isActive =
-            activeRelationId !== undefined &&
-            node.relationIds.some((relationId) => relationId === activeRelationId);
-          const firstRelationId = node.relationIds[0];
-          const edgeStartX = isIncoming ? 310 : 510;
-          const edgeEndX = isIncoming ? x + 40 : x - 40;
-          const edgePath = `M ${edgeStartX} 240 C ${isIncoming ? 270 : 550} 240, ${
-            isIncoming ? 240 : 580
-          } ${y}, ${edgeEndX} ${y}`;
+        {renderColumn(uiCopy.labels.outgoing, outgoingNodes)}
+      </div>
 
-          return (
-            <g key={`${node.direction}-${node.id}-${index}`}>
-              {node.relationIds.map((relationId, relationIndex) => (
-                <path
-                  key={relationId}
-                  d={edgePath}
-                  fill="none"
-                  opacity={activeRelationId && activeRelationId !== relationId ? 0.2 : 0.8}
-                  stroke={edgeColor}
-                  strokeDasharray={node.direction === 'incoming' ? '0' : '8 6'}
-                  strokeLinecap="round"
-                  strokeWidth={
-                    isActive || activeRelationId === relationId ? 3.8 : 2.4 - relationIndex * 0.12
-                  }
-                  onFocus={() => onActiveRelationChange?.(relationId)}
-                  onMouseEnter={() => onActiveRelationChange?.(relationId)}
-                  onMouseLeave={() => onActiveRelationChange?.(undefined)}
-                />
-              ))}
-
-              <g
-                className="cursor-pointer"
-                role={onNodeSelect ? 'button' : undefined}
-                tabIndex={onNodeSelect ? 0 : undefined}
-                onClick={() => onNodeSelect?.(node.id)}
-                onFocus={() => onActiveRelationChange?.(firstRelationId)}
-                onKeyDown={(event) => {
-                  if (!onNodeSelect) {
-                    return;
-                  }
-
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault();
-                    onNodeSelect(node.id);
-                  }
-                }}
-                onMouseEnter={() => onActiveRelationChange?.(firstRelationId)}
-                onMouseLeave={() => onActiveRelationChange?.(undefined)}
-              >
-                <circle
-                  cx={x}
-                  cy={y}
-                  fill="#ffffff"
-                  r={isActive ? 35 : 30}
-                  stroke={edgeColor}
-                  strokeWidth={isActive ? 4 : 2.5}
-                />
-                <circle cx={x} cy={y} fill={edgeColor} fillOpacity="0.08" r={40} />
-                <text
-                  fill="#0f172a"
-                  fontFamily="Manrope, sans-serif"
-                  fontSize="12"
-                  fontWeight="700"
-                  textAnchor="middle"
-                  x={x}
-                  y={y - 2}
-                >
-                  {node.title.slice(0, 14)}
-                </text>
-                <text
-                  fill="#475569"
-                  fontFamily="IBM Plex Mono, monospace"
-                  fontSize="9"
-                  textAnchor="middle"
-                  x={x}
-                  y={y + 16}
-                >
-                  {formatEntityTypeLabel(node.type).slice(0, 12)}
-                </text>
-              </g>
-            </g>
-          );
-        })}
-
-        <g>
-          <circle cx="410" cy="240" fill="#0f172a" r="52" />
-          <circle
-            cx="410"
-            cy="240"
-            fill="none"
-            r="58"
-            stroke="#0f172a"
-            strokeOpacity="0.1"
-            strokeWidth="36"
-          />
-          <text
-            fill="#f8fafc"
-            fontFamily="Manrope, sans-serif"
-            fontSize="14"
-            fontWeight="800"
-            textAnchor="middle"
-            x="410"
-            y="235"
-          >
-            {entity.title.slice(0, 14)}
-          </text>
-          <text
-            fill="#cbd5e1"
-            fontFamily="IBM Plex Mono, monospace"
-            fontSize="10"
-            textAnchor="middle"
-            x="410"
-            y="254"
-          >
-            {formatEntityTypeLabel(entity.type)}
-          </text>
-        </g>
-      </svg>
-
-      <div className="mt-4 flex flex-wrap gap-2 text-xs font-medium text-slate-500">
-        <span>最大 8 ノードまで表示</span>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium text-slate-500">
+        <span>最大 12 ノードまで表示</span>
         <span className="text-slate-300">/</span>
         <span>{entries.length} 件の関係</span>
+        {hiddenCount > 0 ? (
+          <>
+            <span className="text-slate-300">/</span>
+            <span>{hiddenCount} 件は関連ノード一覧で確認</span>
+          </>
+        ) : null}
       </div>
     </div>
   );
